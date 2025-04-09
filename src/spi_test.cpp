@@ -6,17 +6,19 @@ int slaveSelect = 10;
 int betweenBits = 500; // Delay between bits
 int between24bits = 1000; // Delay between 24-bit values
 
-void setup() {
+void opt_setup() {
     Serial.begin(115200); // Initialize serial communication
     while (!Serial);
 
     Serial.println("Starting SPI Test...");
     pinMode(slaveSelect, OUTPUT);
     SPI.begin();
-    SPI.beginTransaction(SPISettings(2000000, MSBFIRST, SPI_MODE0));  
+    SPI.beginTransaction(SPISettings(2000000, MSBFIRST, SPI_MODE0));
 }
 
-void loop() {
+
+
+void opt_loop() {
     for (uint32_t i = (16000UL << 4); i < (1UL << 24); i++) {  // Loop through 0 to (2^24 - 1)
         
         // Print full 24-bit representation, padded with leading zeros
