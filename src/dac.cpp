@@ -1,10 +1,13 @@
 #include <SPI.h>
 #include <Arduino.h>
 #include <math.h>
+#include <test_points.h>
+#include <square.h>
 
 #define SYNC 10
 #define LDAC 9
 #define CLR  8
+
 
 void sendSPICommand(uint8_t cmd, uint16_t data) {
   digitalWrite(SYNC, LOW);
@@ -13,59 +16,90 @@ void sendSPICommand(uint8_t cmd, uint16_t data) {
   digitalWrite(SYNC, HIGH);
 }
 
+// params
+int delay_time = 10; // 8.3us for 120kHz update rate
+// int points = 2000;
+
+
 void setup() {
-    Serial.begin(115200);
-    while (!Serial);
+  Serial.begin(115200);
+  while (!Serial);
 
-    // Initialize pins
-    pinMode(SYNC, OUTPUT);
-    pinMode(LDAC, OUTPUT);
-    pinMode(CLR, OUTPUT);
-    digitalWrite(SYNC, HIGH);
-    digitalWrite(LDAC, HIGH);
-    digitalWrite(CLR, HIGH); // Disable reset
+  // Initialize pins
+  pinMode(SYNC, OUTPUT);
+  pinMode(LDAC, OUTPUT);
+  pinMode(CLR, OUTPUT);
+  digitalWrite(SYNC, HIGH);
+  digitalWrite(LDAC, HIGH);
+  digitalWrite(CLR, HIGH); // Disable reset
 
-    // Start SPI (MODE0!)
-    SPI.begin();
-    SPI.beginTransaction(SPISettings(2000000, MSBFIRST, SPI_MODE0));
-    Serial.println("SPI initialized");
+  // Start SPI (MODE0!)
+  SPI.begin();
+  SPI.beginTransaction(SPISettings(2000000, MSBFIRST, SPI_MODE0));
+  Serial.println("SPI initialized");
 
-    // Power up DAC A and B
-    sendSPICommand(0b00100000, 0b0000000000000011); // Command 100 (power up), data=3
-    delay(10); // Wait for power up to complete
-    Serial.println("DAC A and B powered up");
+  // Power down DAC A and B
+  sendSPICommand(0b00100000, 0b00000000000100011); // Command 100 (power down), data=0
+  delay(100); // Wait for power down to complete 
 
-  // Software reset (optional)
-    sendSPICommand(0b00101000, 0b0000000000000001); // Command 101 (reset), data=1
-    delay(10); // Wait for reset to complete
-    Serial.println("Software reset complete");
+  // Power up DAC A and B
+  sendSPICommand(0b00100000, 0b0000000000000011); // Command 100 (power up), data=3
+  delay(100); // Wait for power up to complete
+  Serial.println("DAC A and B powered up");
 
-    // Enable internal reference (2.5V) + gain=2 (0-5V range)
-    sendSPICommand(0b00111000, 0b0000000000000001); // Command 111 (enable ref), data=1
-    delay(10); // Wait for reference to stabilize
-    Serial.println("Internal reference enabled - gain=2");
+// Software reset (optional)
+  sendSPICommand(0b00101000, 0b0000000000000001); // Command 101 (reset), data=1
+  delay(100); // Wait for reset to complete
+  Serial.println("Software reset complete");
 
-    // Test: Set DAC-A to mid-scale (2.5V)
-    sendSPICommand(0b00011000, 50000); // Write+update DAC A
+  // Enable internal reference (2.5V) + gain=2 (0-5V range)
+  sendSPICommand(0b00111000, 0b0000000000000001); // Command 111 (enable ref), data=1
+  delay(10); // Wait for reference to stabilize
+  Serial.println("Internal reference enabled");
 
-    // midscales. A=32755, B=32711 (0V)
-    // 44 diff (A higher) - lets test
 
-    sendSPICommand(0b00011001, 50000); // write and update DAC B
+  sendSPICommand(0b00011111, (int)65535/1.0); // Set Dac A+B to 0V
+  delay(3000); // Wait for DAC to settle
+
+  generateSquare();
+
 }
 
-int i = 0;
 
+int t = 0;
+int i = 0;
+int x;
+int y;
+
+
+int32_t timestamp = millis();
 void loop() {
 
-    // deliver a sine wave y = sin(x) * 32767 + 32767
-    // 350 Hz speed
-    for (int i = 0; i < 360; i++) {
-        float x = (float)i * (2.0 * M_PI / 360.0); // Convert to radians
-        int y1 = (int)(sin(x) * 25000 + 25000); // Scale to DAC range
-        int y2 = (int)(cos(x) * 25000 + 25000);
-        sendSPICommand(0b00011000, y1); // Write+update DAC A
-        sendSPICommand(0b00011001, y2); // Write+update DAC B
-        delay(100); // Adjust delay for desired frequency
-    }
+  t++; // Increment t, wrapping around at points
+  if (t == 65535) {
+    int32_t wavelength = millis() - timestamp;
+    Serial.println(wavelength);
+    timestamp = millis();
+    t = 0;
+  }
+
+  i = (i + 1) % NUM_POINTS;
+  
+
+  // x = (int) 24575 * cos((t/65535.0) * 2 * 3.14159) + 32767;
+  // y = (int) 24575 * sin((t/65535.0) * 2 * 3.14159) + 32767;
+
+  // x = (int) 32767 * sin((t/65535.0) * 2 * 3.14159) + 32767;
+  // y = (int) 32767 * sin((t/65535.0) * 2 * 3.14159) + 32767;
+
+  x = squareCoords[i][0];
+  y = squareCoords[i][1];
+
+
+  sendSPICommand(0b00000000, x); // Write DAC A
+  sendSPICommand(0b00000001, y); // Write DAC B
+
+  sendSPICommand(0b00001111, 0b0000000000000000); // Update Dac A+B
+  
+  delayMicroseconds(delay_time);
 }

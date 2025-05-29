@@ -8,8 +8,8 @@
         {
             "name": "PlatformIO",
             "includePath": [
-                "C:/Users/Will Boyd/Teensy/include",
-                "C:/Users/Will Boyd/Teensy/src",
+                "C:/Users/Will Boyd/Projects/Teensy/include",
+                "C:/Users/Will Boyd/Projects/Teensy/src",
                 "C:/Users/Will Boyd/.platformio/packages/framework-arduinoteensy/libraries/SPI",
                 "C:/Users/Will Boyd/.platformio/packages/framework-arduinoteensy/cores/teensy4",
                 "C:/Users/Will Boyd/.platformio/packages/framework-arduinoteensy/libraries/ADC",
@@ -115,8 +115,8 @@
             "browse": {
                 "limitSymbolsToIncludedHeaders": true,
                 "path": [
-                    "C:/Users/Will Boyd/Teensy/include",
-                    "C:/Users/Will Boyd/Teensy/src",
+                    "C:/Users/Will Boyd/Projects/Teensy/include",
+                    "C:/Users/Will Boyd/Projects/Teensy/src",
                     "C:/Users/Will Boyd/.platformio/packages/framework-arduinoteensy/libraries/SPI",
                     "C:/Users/Will Boyd/.platformio/packages/framework-arduinoteensy/cores/teensy4",
                     "C:/Users/Will Boyd/.platformio/packages/framework-arduinoteensy/libraries/ADC",
