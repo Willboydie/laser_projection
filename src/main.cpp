@@ -35,7 +35,7 @@ float Z;
 uint16_t A;
 uint16_t B;
 
-void setup() {
+void setup0() {
   Serial.begin(115200);
   while (!Serial);
 
@@ -94,7 +94,7 @@ void setup() {
 
 
 int p = 0;
-void loop() {
+void loop0() {
   p = (p + 1) % points; // Loop through points
   A = dacCmds[p].A;
   B = dacCmds[p].B;

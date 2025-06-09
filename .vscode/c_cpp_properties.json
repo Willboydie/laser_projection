@@ -10,6 +10,7 @@
             "includePath": [
                 "C:/Users/Will Boyd/Projects/Teensy/include",
                 "C:/Users/Will Boyd/Projects/Teensy/src",
+                "C:/Users/Will Boyd/Projects/Teensy/.pio/libdeps/teensy41/SdFat/src",
                 "C:/Users/Will Boyd/.platformio/packages/framework-arduinoteensy/libraries/SPI",
                 "C:/Users/Will Boyd/.platformio/packages/framework-arduinoteensy/cores/teensy4",
                 "C:/Users/Will Boyd/.platformio/packages/framework-arduinoteensy/libraries/ADC",
@@ -117,6 +118,7 @@
                 "path": [
                     "C:/Users/Will Boyd/Projects/Teensy/include",
                     "C:/Users/Will Boyd/Projects/Teensy/src",
+                    "C:/Users/Will Boyd/Projects/Teensy/.pio/libdeps/teensy41/SdFat/src",
                     "C:/Users/Will Boyd/.platformio/packages/framework-arduinoteensy/libraries/SPI",
                     "C:/Users/Will Boyd/.platformio/packages/framework-arduinoteensy/cores/teensy4",
                     "C:/Users/Will Boyd/.platformio/packages/framework-arduinoteensy/libraries/ADC",
