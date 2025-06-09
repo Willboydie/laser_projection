@@ -1,13 +1,12 @@
 #include <SPI.h>
 #include <Arduino.h>
 #include <math.h>
-#include <test_points.h>
-#include <square.h>
+#include <sphericalShapes.h>
 
 #define SYNC 10
 #define LDAC 9
 #define CLR  8
-
+#define PI 3.1415926
 
 void sendSPICommand(uint8_t cmd, uint16_t data) {
   digitalWrite(SYNC, LOW);
@@ -17,9 +16,24 @@ void sendSPICommand(uint8_t cmd, uint16_t data) {
 }
 
 // params
-int delay_time = 10; // 8.3us for 120kHz update rate
-// int points = 2000;
+// Define maximum number of points (adjust depending on inc/range)
+#define MAX_POINTS 20000
+#define MAX_ANGLE 0.376 // Maximum angle in radians (e.g., ±20°)
+int delay_time = 10000;
+Point coords[MAX_POINTS]; // Array to hold generated points
+uint16_t points;
 
+struct DACcmd {
+  uint16_t A;
+  uint16_t B; 
+};
+DACcmd dacCmds[MAX_POINTS]; // Array to hold DAC commands
+
+float X;
+float Y;
+float Z;
+uint16_t A;
+uint16_t B;
 
 void setup() {
   Serial.begin(115200);
@@ -58,48 +72,41 @@ void setup() {
   Serial.println("Internal reference enabled");
 
 
-  sendSPICommand(0b00011111, (int)65535/1.0); // Set Dac A+B to 0V
+  sendSPICommand(0b00011111, (int)65535/2.0); // Set Dac A+B to 0V
   delay(3000); // Wait for DAC to settle
 
-  generateSquare();
-
-}
-
-
-int t = 0;
-int i = 0;
-int x;
-int y;
-
-
-int32_t timestamp = millis();
-void loop() {
-
-  t++; // Increment t, wrapping around at points
-  if (t == 65535) {
-    int32_t wavelength = millis() - timestamp;
-    Serial.println(wavelength);
-    timestamp = millis();
-    t = 0;
+  points = cartesianCircle(122, 80, 0.1, coords);
+  if (points == MAX_POINTS + 1) {
+    Serial.println("Too many points generated!");
+    return;
   }
 
-  i = (i + 1) % NUM_POINTS;
-  
+  for (int p = 0; p < points; p++) {
+    X = coords[p].x;
+    Y = coords[p].y;
+    Z = coords[p].z;
+    SphericalCoord sph = toSpherical(X, Y, Z);
 
-  // x = (int) 24575 * cos((t/65535.0) * 2 * 3.14159) + 32767;
-  // y = (int) 24575 * sin((t/65535.0) * 2 * 3.14159) + 32767;
-
-  // x = (int) 32767 * sin((t/65535.0) * 2 * 3.14159) + 32767;
-  // y = (int) 32767 * sin((t/65535.0) * 2 * 3.14159) + 32767;
-
-  x = squareCoords[i][0];
-  y = squareCoords[i][1];
+    dacCmds[p].A =  toDacCmd(sph.theta);
+    dacCmds[p].B = toDacCmd(sph.phi);
+  }
+}
 
 
-  sendSPICommand(0b00000000, x); // Write DAC A
-  sendSPICommand(0b00000001, y); // Write DAC B
+int p = 0;
+void loop() {
+  p = (p + 1) % points; // Loop through points
+  A = dacCmds[p].A;
+  B = dacCmds[p].B;
+
+  sendSPICommand(0b00000000, A); // Write DAC A
+  sendSPICommand(0b00000001, B); // Write DAC B
 
   sendSPICommand(0b00001111, 0b0000000000000000); // Update Dac A+B
-  
+
   delayMicroseconds(delay_time);
 }
+
+// Why we see distortion:
+
+// The current XYZ -> (theta, phi) conversion assumes that r will stay constant, which is of course bullshit.
