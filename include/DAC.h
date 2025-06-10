@@ -13,6 +13,7 @@ struct DACcmd {
 };
 DACcmd dacCmds[MAX_POINTS];
 
+
 void sendSPICommand(uint8_t cmd, uint16_t data) {
   digitalWrite(SYNC, LOW);
   SPI.transfer(cmd);
@@ -21,7 +22,6 @@ void sendSPICommand(uint8_t cmd, uint16_t data) {
 }
 
 void initDAC() {
-
     // Initialize pins
     pinMode(SYNC, OUTPUT);
     pinMode(LDAC, OUTPUT);
@@ -69,6 +69,4 @@ void updateDAC(uint16_t A, uint16_t B, int delay_time) {
     sendSPICommand(0b00000000, A); // Write DAC A
     sendSPICommand(0b00000001, B); // Write DAC B
     sendSPICommand(0b00001111, 0b0000000000000000); // Update Dac A+B
-
-    delayMicroseconds(delay_time);
 }
