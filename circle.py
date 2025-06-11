@@ -1,4 +1,5 @@
 import numpy as np
+import save
 
 def cartesianCircle(max_angle, inc):
     t = np.arange(0, 2 * np.pi, inc)
@@ -15,27 +16,12 @@ def toSpherical(xyz): # only works for circles
     phi = np.arcsin(z / r)    # polar angles
     return np.column_stack((theta, phi))
 
-def toBinCmd(spherical, max_angle):
-    theta, phi = spherical[:, 0], spherical[:, 1]
-    cmd = np.zeros((theta.size, 2), dtype='>u2')
-    cmd[:, 0] = (((theta + max_angle) / (2 * max_angle)) * 0xFFFF).astype('>u2')
-    cmd[:, 1] = (((phi + max_angle) / (2 * max_angle)) * 0xFFFF).astype('>u2')
-    return cmd
-
-def createSphericalBinFile(xyz, max_angle):
-    
-    spherical = toSpherical(xyz)
-    cmd = toBinCmd(spherical, max_angle)
-    
-    # Save to binary file
-    with open('data/path.bin', 'wb') as f:
-        # Write the data
-        cmd.tofile(f)
 
 if __name__ == "__main__":
     max_angle = np.pi/9  # Example max angle
     inc = 0.001     # Increment in radians
 
     xyz = cartesianCircle(max_angle, inc)
-    createSphericalBinFile(xyz, max_angle)
-    print(f"Circle data saved to data/path.bin")
+    spherical = toSpherical(xyz)
+
+    save.createBinFile(spherical, max_angle)
