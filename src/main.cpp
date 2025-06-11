@@ -10,9 +10,7 @@
 #define PLAY_CMD     0b1001
 #define PAUSE_CMD    0b1010
 
-#define SD_CS_PIN    10    // SD card chip select
-#define DAC1_PIN     A14   // DAC0 (16-bit value A)
-#define DAC2_PIN     A15   // DAC1 (16-bit value B)
+#define SD_CS_PIN BUILTIN_SDCARD    // SD card chip select
 
 // ======== GLOBALS ========
 enum Mode { MODE_WRITE, MODE_PROJECT };
@@ -24,6 +22,21 @@ File dataFile;
 uint32_t bytesWritten = 0;  // Total bytes written in WRITE mode
 uint32_t bytesRead = 0;     // Current read position in PROJECT mode
 uint32_t fileSize = 0;      // Total file size (bytes)
+
+File playbackFile;          // File handle for playback
+uint32_t currentDelayUs = 1000; // Default delay for playback (1ms)
+
+// ======== SETUP HELPER FUNCTIONS ========
+void updateFileSize() {
+  dataFile = SD.open("data.bin", FILE_READ);
+  if (dataFile) {
+    fileSize = dataFile.size();
+    dataFile.close();
+  } else {
+    Serial.println("SD ERROR: Failed to open data.bin!");
+    fileSize = 0;
+  }
+}
 
 // ======== SETUP ========
 void setup() {
@@ -41,20 +54,10 @@ void setup() {
   updateFileSize();
   Serial.print("Initial file size: "); Serial.print(fileSize); Serial.println(" bytes");
 
-  initDac();
+  initDAC();
 }
 
-// ======== HELPER FUNCTIONS ========
-void updateFileSize() {
-  dataFile = SD.open("data.bin", FILE_READ);
-  if (dataFile) {
-    fileSize = dataFile.size();
-    dataFile.close();
-  } else {
-    fileSize = 0;
-  }
-}
-
+// ======== LOOP HELPER FUNCTIONS ========
 uint32_t calculateDelayUs(uint32_t payload) {
   if (payload == 0) {
     Serial.println("PLAY WARNING: No delay bits set. Using 1µs default.");
@@ -85,8 +88,25 @@ void wipeFile() {
   }
 }
 
+void verifyFileContents() {
+    File verifyFile = SD.open("data.bin", FILE_READ);
+    if (verifyFile) {
+        Serial.println("File contents:");
+        while (verifyFile.available() >= 4) {
+            uint16_t a, b;
+            verifyFile.read((byte*)&a, sizeof(a));
+            verifyFile.read((byte*)&b, sizeof(b));
+            Serial.print("A=0x"); Serial.print(a, HEX);
+            Serial.print(", B=0x"); Serial.println(b, HEX);
+        }
+        verifyFile.close();
+    } else {
+        Serial.println("Could not open file for verification");
+    }
+}
+
 // ======== COMMAND PROCESSING ========
-void processCommand(uint32_t cmd, uint32_t payload) {
+void processCommand(uint8_t cmd, uint32_t payload) {
 
   if (cmd == WRITE_CMD || cmd == PROJECT_CMD) {
     if (playbackFile) {
@@ -106,6 +126,9 @@ void processCommand(uint32_t cmd, uint32_t payload) {
       break;
 
     case PROJECT_CMD:
+      // if (currentMode == MODE_WRITE) {
+      //   verifyFileContents(); // Verify contents before switching to PROJECT
+      // }
       currentMode = MODE_PROJECT;
       isProjecting = false;
       updateFileSize(); // Refresh file size
@@ -115,21 +138,27 @@ void processCommand(uint32_t cmd, uint32_t payload) {
     // --- Write mode commands ---
     case SAVE_CMD:
       if (currentMode == MODE_WRITE) {
-        uint16_t valA = (payload >> 16) & 0xFFFF;
-        uint16_t valB = payload & 0xFFFF;
-        dataFile = SD.open("data.bin", FILE_WRITE | O_APPEND);
-        if (dataFile) {
-          dataFile.write((byte*)&valA, sizeof(valA));
-          dataFile.write((byte*)&valB, sizeof(valB));
-          bytesWritten += sizeof(valA) + sizeof(valB);
-          fileSize = bytesWritten;
-          dataFile.close();
-          Serial.print("SAVED: A=0x"); Serial.print(valA, HEX);
-          Serial.print(", B=0x"); Serial.print(valB, HEX);
-          Serial.print(" | Total bytes: "); Serial.println(fileSize);
-        } else {
-          Serial.println("SD ERROR: Failed to save data!");
-        }
+          uint16_t valA = (payload >> 16) & 0xFFFF;
+          uint16_t valB = payload & 0xFFFF;
+          dataFile = SD.open("data.bin", FILE_WRITE);
+          if (dataFile) {
+              size_t writtenA = dataFile.write((byte*)&valA, sizeof(valA));
+              size_t writtenB = dataFile.write((byte*)&valB, sizeof(valB));
+              dataFile.flush();  // Force write to disk
+              dataFile.close();
+              
+              if (writtenA == sizeof(valA) && writtenB == sizeof(valB)) {
+                  bytesWritten += sizeof(valA) + sizeof(valB);
+                  fileSize = bytesWritten;
+                  Serial.print("SAVED: A=0b"); Serial.print(valA, BIN);
+                  Serial.print(", B=0b"); Serial.print(valB, BIN);
+                  Serial.print(" | Total bytes: "); Serial.println(fileSize);
+              } else {
+                  Serial.println("SD ERROR: Write failed!");
+              }
+          } else {
+              Serial.println("SD ERROR: Failed to open file!");
+          }
       }
       break;
 
@@ -147,7 +176,7 @@ void processCommand(uint32_t cmd, uint32_t payload) {
         playbackFile.seek(bytesRead % fileSize); // Resume from last position
         }
         
-        uint32_t delayUs = calculateDelayUs(payload);
+        currentDelayUs = calculateDelayUs(payload);
         isProjecting = true;
         Serial.print("PLAYBACK: Started from byte ");
         Serial.print(bytesRead % fileSize); // Resume position
@@ -172,53 +201,74 @@ void processCommand(uint32_t cmd, uint32_t payload) {
   }
 }
 
+// int i = 0;
+// int loopStart;
+// int timeForSerialCheck;
+// int timeForBinaryRead;
+// int timeForDACUpdate;
+// int timeForIfStatement;
+
+
 // ======== MAIN LOOP ========
 void loop() {
+
+  // loopStart = micros();
+
   // --- Check for incoming 36-bit command ---
-  if (Serial.available() >= 5) {
-    uint32_t cmd = Serial.read() & 0x0F;
+  if (Serial.available() > 4) {
+    uint8_t cmd = Serial.read() & 0x0F;
     uint32_t payload = 0;
     for (int i = 0; i < 4; i++) {
       payload = (payload << 8) | Serial.read();
     }
-    Serial.print("RX CMD: 0b"); Serial.print(cmd, BIN);
-    Serial.print(", Payload: 0x"); Serial.println(payload, HEX);
+    // Serial.print("RX CMD: 0b"); Serial.print(cmd, BIN);
+    // Serial.print(", Payload: 0b"); Serial.println(payload, BIN);
     processCommand(cmd, payload);
   }
 
+  // timeForSerialCheck = micros() - loopStart;
+
   // --- Projection loop ---
-  if (currentMode == MODE_PROJECT && isProjecting && fileSize > 0) {
+  if (currentMode == MODE_PROJECT && isProjecting && fileSize > 2) {
     static uint32_t lastUpdateTime = 0;
-    static uint32_t currentDelayUs = 1000;
-    static File playbackFile;
     static uint16_t valA, valB;
 
     if (micros() - lastUpdateTime >= currentDelayUs) {
-      if (playbackFile.available() >= sizeof(valA) + sizeof(valB)) {
+
+      // timeForIfStatement = micros() - loopStart - timeForSerialCheck;
+
+      if (playbackFile.available() >= int(sizeof(valA) + sizeof(valB))) {
         playbackFile.read((byte*)&valA, sizeof(valA));
         playbackFile.read((byte*)&valB, sizeof(valB));
         bytesRead += sizeof(valA) + sizeof(valB);
         bytesRead %= fileSize; // Wrap around
 
+        // timeForBinaryRead = micros() - loopStart - timeForSerialCheck - timeForIfStatement;
+
         updateDAC(valA, valB);
 
-        Serial.print("DAC: A=0x"); Serial.print(valA, HEX);
-        Serial.print(", B=0x"); Serial.print(valB, HEX);
-        Serial.print(" | Position: "); Serial.print(bytesRead);
-        Serial.print("/"); Serial.print(fileSize);
-        Serial.print(" ("); Serial.print((bytesRead * 100) / fileSize);
-        Serial.println("%%)");
+        // timeForDACUpdate = micros() - loopStart - timeForSerialCheck - timeForIfStatement - timeForBinaryRead;
+
       } else {
         playbackFile.seek(0); // Loop to start
         bytesRead = 0;
       }
+
       lastUpdateTime = micros();
     }
   }
+  // i++; 
+  // if (i % 1000000 == 0 && isProjecting && currentMode == MODE_PROJECT) {
+  //   Serial.print("Loop time (µs): "); Serial.print(micros() - loopStart);
+  //   Serial.print("µs | Serial check: "); Serial.print(timeForSerialCheck);
+  //   Serial.print("µs | Binary read: "); Serial.print(timeForBinaryRead);
+  //   Serial.print("µs | DAC update: "); Serial.print(timeForDACUpdate);
+  // }
 }
 
+// We are seeing a loop every 4 micro seconds (250kHz) --- ~4 microseconds are spent on updateDAC()
+// We have ~6000 points in the file, so we loop ~0.025s (40 loops per second)
 
 
 // Why we see distortion:
-
 // The current XYZ -> (theta, phi) conversion assumes that r will stay constant, which is of course bullshit.

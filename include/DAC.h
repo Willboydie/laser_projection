@@ -1,24 +1,17 @@
 #include <SPI.h>
 #include <Arduino.h>
 
-#define MAX_POINTS 5000 // Maximum number of points in an array
-
 #define SYNC 10
 #define LDAC 9
 #define CLR  8
 
-struct DACcmd {
-  uint16_t A;
-  uint16_t B; 
-};
-DACcmd dacCmds[MAX_POINTS];
-
 
 void sendSPICommand(uint8_t cmd, uint16_t data) {
-  digitalWrite(SYNC, LOW);
+  digitalWriteFast(SYNC, LOW);
   SPI.transfer(cmd);
-  SPI.transfer16(data); // Send 16-bit data
-  digitalWrite(SYNC, HIGH);
+  SPI.transfer(highByte(data));
+  SPI.transfer(lowByte(data));
+  digitalWriteFast(SYNC, HIGH);
 }
 
 void initDAC() {
@@ -32,7 +25,7 @@ void initDAC() {
 
     // Start SPI (MODE0!)
     SPI.begin();
-    SPI.beginTransaction(SPISettings(2000000, MSBFIRST, SPI_MODE0));
+    SPI.beginTransaction(SPISettings(50000000, MSBFIRST, SPI_MODE0));
     Serial.println("SPI initialized");
 
     // Power down DAC A and B
@@ -54,17 +47,12 @@ void initDAC() {
     delay(10); // Wait for reference to stabilize
     Serial.println("Internal reference enabled");
 
-
     sendSPICommand(0b00011111, (int)65535/2.0); // Set Dac A+B to 0V
     delay(3000); // Wait for DAC to settle
 }
 
 
-void updateDAC(uint16_t A, uint16_t B, int delay_time) {
-    // Ensure values are within 0-65535 range
-    A = constrain(A, 0, 65535);
-    B = constrain(B, 0, 65535);
-
+void updateDAC(uint16_t A, uint16_t B) {
     // Send the command to the DAC
     sendSPICommand(0b00000000, A); // Write DAC A
     sendSPICommand(0b00000001, B); // Write DAC B
