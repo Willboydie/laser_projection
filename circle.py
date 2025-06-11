@@ -28,7 +28,7 @@ def createSphericalBinFile(xyz, max_angle):
     cmd = toBinCmd(spherical, max_angle)
     
     # Save to binary file
-    with open('data/circle.bin', 'wb') as f:
+    with open('data/path.bin', 'wb') as f:
         # Write the data
         cmd.tofile(f)
 
@@ -38,4 +38,4 @@ if __name__ == "__main__":
 
     xyz = cartesianCircle(max_angle, inc)
     createSphericalBinFile(xyz, max_angle)
-    print(f"Circle data saved to data/circle.bin")
+    print(f"Circle data saved to data/path.bin")

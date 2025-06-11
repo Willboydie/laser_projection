@@ -24,7 +24,7 @@ uint32_t bytesRead = 0;     // Current read position in PROJECT mode
 uint32_t fileSize = 0;      // Total file size (bytes)
 
 File playbackFile;          // File handle for playback
-uint32_t currentDelayUs = 1000; // Default delay for playback (1ms)
+uint32_t currentDelayUs = 0; // Default delay for playback (none)
 
 // ======== SETUP HELPER FUNCTIONS ========
 void updateFileSize() {
@@ -60,15 +60,16 @@ void setup() {
 // ======== LOOP HELPER FUNCTIONS ========
 uint32_t calculateDelayUs(uint32_t payload) {
   if (payload == 0) {
-    Serial.println("PLAY WARNING: No delay bits set. Using 1µs default.");
-    return 1;
+    Serial.println("PLAY: 250KHz (full speed).");
+    return 0;
   }
   for (uint8_t bit = 0; bit < 32; bit++) {
-    if (payload & (1 << (31 - bit))) { // LSB = bit 31
+    if (payload & (1 << (32 - bit))) { // LSB = bit 31
       uint32_t delay = 1;
       for (uint8_t i = 0; i < bit; i++) delay *= 10;
-      Serial.print("PLAY: delay="); Serial.print(delay); 
-      Serial.print("µs (bit "); Serial.print(bit); Serial.println(" set)");
+      float freq_KHz = 1000.0 / (delay + 4);
+      Serial.print("PLAY: "); Serial.print(freq_KHz, 1); 
+      Serial.print("KHz.\n");
       return delay;
     }
   }
@@ -150,9 +151,9 @@ void processCommand(uint8_t cmd, uint32_t payload) {
               if (writtenA == sizeof(valA) && writtenB == sizeof(valB)) {
                   bytesWritten += sizeof(valA) + sizeof(valB);
                   fileSize = bytesWritten;
-                  Serial.print("SAVED: A=0b"); Serial.print(valA, BIN);
-                  Serial.print(", B=0b"); Serial.print(valB, BIN);
-                  Serial.print(" | Total bytes: "); Serial.println(fileSize);
+                  // Serial.print("SAVED: A=0b"); Serial.print(valA, BIN);
+                  // Serial.print(", B=0b"); Serial.print(valB, BIN);
+                  // Serial.print(" | Total bytes: "); Serial.println(fileSize);
               } else {
                   Serial.println("SD ERROR: Write failed!");
               }
