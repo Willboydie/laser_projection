@@ -7,28 +7,29 @@ def cartesianCircle(radius, inc, c):
     x = np.ones(np.shape(z)[0]) * c
     return np.column_stack((x, y, z))
 
+
 def cartesianRectangle(inc, c, r):
     # Top side (left to right)
-    y_top = np.arange(-r/2, r/2, inc)
-    z_top = np.full_like(y_top, r/2)
+    y_top = np.arange(-r, r, inc)
+    z_top = np.full_like(y_top, r)
     x_top = np.full_like(y_top, c)
     top = np.column_stack((x_top, y_top, z_top))
 
     # Right side (top to bottom)
-    z_right = np.arange(r/2, -r/2, -inc)
-    y_right = np.full_like(z_right, r/2)
+    z_right = np.arange(r, -r, -inc)
+    y_right = np.full_like(z_right, r)
     x_right = np.full_like(z_right, c)
     right = np.column_stack((x_right, y_right, z_right))
 
     # Bottom side (right to left)
-    y_bottom = np.arange(r/2, -r/2, -inc)
-    z_bottom = np.full_like(y_bottom, -r/2)
+    y_bottom = np.arange(r, -r, -inc)
+    z_bottom = np.full_like(y_bottom, -r)
     x_bottom = np.full_like(y_bottom, c)
     bottom = np.column_stack((x_bottom, y_bottom, z_bottom))
 
     # Left side (bottom to top)
-    z_left = np.arange(-r/2, r/2, inc)
-    y_left = np.full_like(z_left, -r/2)
+    z_left = np.arange(-r, r, inc)
+    y_left = np.full_like(z_left, -r)
     x_left = np.full_like(z_left, c)
     left = np.column_stack((x_left, y_left, z_left))
 
@@ -38,3 +39,79 @@ def cartesianRectangle(inc, c, r):
     return path
 
 
+def hemiRectangle(inc, c, r):
+
+    # Bottom side (right to left)
+    y_bottom = np.arange(r, -r, -inc)
+    z_bottom = np.full_like(y_bottom, -r)
+    x_bottom = np.full_like(y_bottom, c)
+    bottom = np.column_stack((x_bottom, y_bottom, z_bottom))
+
+    # Left side (bottom to top)
+    z_square_left = np.arange(-r, 0, inc)
+    y_square_left = np.full_like(z_square_left, -r)
+    x_square_left = np.full_like(z_square_left, c)
+    left_square = np.column_stack((x_square_left, y_square_left, z_square_left))
+
+    z_square_right = np.arange(0, -r, -inc)
+    y_square_right = np.full_like(z_square_right, r)
+    x_square_right = np.full_like(z_square_right, c)
+    right_square = np.column_stack((x_square_right, y_square_right, z_square_right))
+
+    t = np.linspace(-np.pi/2, np.pi/2, int(np.pi*r / inc))
+    z = r * np.cos(t)
+    y = r * np.sin(t)
+    x = np.ones(np.shape(z)[0]) * c
+    top_hemi = np.column_stack((x, y, z))
+
+    # Concatenate in chronological order: top → right → bottom → left
+    path = np.concatenate((top_hemi, right_square, bottom, left_square), axis=0)
+
+    return path
+
+
+def toSpherical(cart_point):
+
+    x, y, z = cart_point
+    r = np.sqrt(x**2 + y**2 + z**2)
+
+    phi = np.arcsin(z/r)
+    # theta = np.arctan2(y, x)
+    # if y > 0:
+    #     theta = np.arccos(x / (r*np.cos(phi)))
+    # else:
+    #     theta = -np.arccos(x / (r*np.cos(phi)))
+
+    theta = np.arcsin(y / (r*np.cos(phi)))
+
+    # print(f"arctan theta: {theta1},  arccos theta: {theta2},   arcsin theta: {theta3}")
+
+    return [theta, phi]
+
+
+
+def correct_bulge(path, alpha):  ## ya obsoleto
+    for point in path:
+        x, y, z = point
+        if y > 0 and z > 0:
+            point[1] = y - z/abs(z) * (alpha * (z**2 - 34.5**2))
+            point[2] = z + y/abs(y) * (alpha * (y**2 - 34.5**2))
+        elif y < 0 and z > 0:
+            point[1] = y + z/abs(z) * (alpha * (z**2 - 34.5**2))
+            point[2] = z - y/abs(y) * (alpha * (y**2 - 34.5**2))
+        elif y < 0 and z < 0:
+            point[1] = y - z/abs(z) * (alpha * (z**2 - 34.5**2))
+            point[2] = z + y/abs(y) * (alpha * (y**2 - 34.5**2))
+        elif y > 0 and z < 0:
+            point[1] = y + z/abs(z) * (alpha * (z**2 - 34.5**2))
+            point[2] = z - y/abs(y) * (alpha * (y**2 - 34.5**2))
+
+    return path
+
+
+def project_onto_outward_curling_sphere(cart_path, alpha, beta):
+    for point in cart_path:
+        x, y, z = point
+        point[0] = 2*x - np.sqrt(x**2 + alpha*y**2 - beta*z**2)
+
+    return cart_path

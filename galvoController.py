@@ -14,6 +14,7 @@ PROJECT_CMD = 0b0010
 SAVE_CMD    = 0b0100
 PLAY_CMD    = 0b1001
 PAUSE_CMD   = 0b1010
+RESET_CMD   = 0b1111
 
 class GalvoController:
     def __init__(self, master):
@@ -25,6 +26,9 @@ class GalvoController:
         # Serial connection button
         self.connect_btn = tk.Button(master, text="Connect to Teensy", command=self.connect_serial)
         self.connect_btn.pack(pady=5)
+
+        self.reset_btn = tk.Button(master, text="RESET", command=self.reset, state='disabled')
+        self.reset_btn.pack(pady=5)
 
         # Mode buttons
         self.write_btn = tk.Button(master, text="WRITE Mode", command=self.write_mode, state='disabled')
@@ -83,6 +87,7 @@ class GalvoController:
     def enable_mode_buttons(self):
         self.write_btn.config(state='normal')
         self.project_btn.config(state='normal')
+        self.reset_btn.config(state='normal')
 
     def enable_write_buttons(self):
         self.write_btn.config(state='normal')
@@ -123,6 +128,11 @@ class GalvoController:
         self.send_command(PROJECT_CMD)
         self.enable_project_buttons()
         time.sleep(0.2)
+
+    def reset(self):
+        self.send_command(RESET_CMD)
+        self.enable_mode_buttons()
+        time.sleep(2)
 
     def save_data(self):
         file_path = "data/path.bin"

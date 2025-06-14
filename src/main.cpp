@@ -9,6 +9,7 @@
 #define SAVE_CMD     0b0100
 #define PLAY_CMD     0b1001
 #define PAUSE_CMD    0b1010
+#define RESET_CMD    0b1111
 
 #define SD_CS_PIN BUILTIN_SDCARD    // SD card chip select
 
@@ -117,10 +118,14 @@ void processCommand(uint8_t cmd, uint32_t payload) {
 
   switch (cmd) {
     // --- Mode switches ---
+    case RESET_CMD:
+      Serial.println("Initiating Reset...");
+      isProjecting = false;
+      bytesRead = 0;
+      initDAC();
+
     case WRITE_CMD:
-      if (currentMode == MODE_PROJECT) {
-        wipeFile(); // Wipe file when switching from PROJECT to WRITE
-      }
+      wipeFile();
       currentMode = MODE_WRITE;
       bytesRead = 0; // Reset read counter
       Serial.println("MODE: WRITE (ready to save)");
