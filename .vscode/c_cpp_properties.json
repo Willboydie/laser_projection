@@ -8,8 +8,8 @@
         {
             "name": "PlatformIO",
             "includePath": [
-                "C:/Users/Will Boyd/Projects/Teensy/include",
-                "C:/Users/Will Boyd/Projects/Teensy/src",
+                "C:/Users/Will Boyd/Projects/laser_projection/include",
+                "C:/Users/Will Boyd/Projects/laser_projection/src",
                 "C:/Users/Will Boyd/.platformio/packages/framework-arduinoteensy/libraries/SD/src",
                 "C:/Users/Will Boyd/.platformio/packages/framework-arduinoteensy/libraries/SdFat/src",
                 "C:/Users/Will Boyd/.platformio/packages/framework-arduinoteensy/libraries/SPI",
@@ -115,8 +115,8 @@
             "browse": {
                 "limitSymbolsToIncludedHeaders": true,
                 "path": [
-                    "C:/Users/Will Boyd/Projects/Teensy/include",
-                    "C:/Users/Will Boyd/Projects/Teensy/src",
+                    "C:/Users/Will Boyd/Projects/laser_projection/include",
+                    "C:/Users/Will Boyd/Projects/laser_projection/src",
                     "C:/Users/Will Boyd/.platformio/packages/framework-arduinoteensy/libraries/SD/src",
                     "C:/Users/Will Boyd/.platformio/packages/framework-arduinoteensy/libraries/SdFat/src",
                     "C:/Users/Will Boyd/.platformio/packages/framework-arduinoteensy/libraries/SPI",

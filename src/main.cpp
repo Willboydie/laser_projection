@@ -2,6 +2,7 @@
 #include <SD.h>
 #include <SPI.h>
 #include <DAC.h>
+#include <TTL.h>
 
 // ======== CONFIGURATION ========
 #define WRITE_CMD    0b0001
@@ -56,6 +57,7 @@ void setup() {
   Serial.print("Initial file size: "); Serial.print(fileSize); Serial.println(" bytes");
 
   initDAC();
+  initTTL();
 }
 
 // ======== LOOP HELPER FUNCTIONS ========
@@ -65,7 +67,7 @@ uint32_t calculateDelayUs(uint32_t payload) {
     return 0;
   }
   for (uint8_t bit = 0; bit < 32; bit++) {
-    if (payload & (1 << (32 - bit))) { // LSB = bit 31
+    if (payload & (1UL << bit)) { // bit 0 = least significant
       uint32_t delay = 1;
       for (uint8_t i = 0; i < bit; i++) delay *= 10;
       float freq_KHz = 1000.0 / (delay + 4);
@@ -90,22 +92,22 @@ void wipeFile() {
   }
 }
 
-void verifyFileContents() {
-    File verifyFile = SD.open("data.bin", FILE_READ);
-    if (verifyFile) {
-        Serial.println("File contents:");
-        while (verifyFile.available() >= 4) {
-            uint16_t a, b;
-            verifyFile.read((byte*)&a, sizeof(a));
-            verifyFile.read((byte*)&b, sizeof(b));
-            Serial.print("A=0x"); Serial.print(a, HEX);
-            Serial.print(", B=0x"); Serial.println(b, HEX);
-        }
-        verifyFile.close();
-    } else {
-        Serial.println("Could not open file for verification");
-    }
-}
+// void verifyFileContents() {
+//     File verifyFile = SD.open("data.bin", FILE_READ);
+//     if (verifyFile) {
+//         Serial.println("File contents:");
+//         while (verifyFile.available() > 4) {
+//             uint16_t a, b;
+//             verifyFile.read((byte*)&a, sizeof(a));
+//             verifyFile.read((byte*)&b, sizeof(b));
+//             Serial.print("A=0x"); Serial.print(a, HEX);
+//             Serial.print(", B=0x"); Serial.println(b, HEX);
+//         }
+//         verifyFile.close();
+//     } else {
+//         Serial.println("Could not open file for verification");
+//     }
+// }
 
 // ======== COMMAND PROCESSING ========
 void processCommand(uint8_t cmd, uint32_t payload) {
@@ -123,6 +125,7 @@ void processCommand(uint8_t cmd, uint32_t payload) {
       isProjecting = false;
       bytesRead = 0;
       initDAC();
+      break;
 
     case WRITE_CMD:
       wipeFile();
@@ -172,6 +175,14 @@ void processCommand(uint8_t cmd, uint32_t payload) {
     case PLAY_CMD:
       if (currentMode == MODE_PROJECT) {
 
+        const uint32_t recordSize = sizeof(uint16_t) * 2 + sizeof(uint8_t);
+        updateFileSize();
+        if (fileSize < recordSize) {
+          Serial.println("PLAYBACK ERROR: File too small or empty for a record.");
+          isProjecting = false;
+          return;
+        }
+
         if (!playbackFile) {
           playbackFile = SD.open("data.bin", FILE_READ);
           if (!playbackFile) {
@@ -207,53 +218,68 @@ void processCommand(uint8_t cmd, uint32_t payload) {
   }
 }
 
-// int i = 0;
-// int loopStart;
-// int timeForSerialCheck;
-// int timeForBinaryRead;
-// int timeForDACUpdate;
-// int timeForIfStatement;
+int i = 0;
+uint32_t loopStart;
+uint32_t timeForSerialCheck;
+uint32_t timeForBinaryRead;
+uint32_t timeForDACUpdate;
+uint32_t timeForIfStatement;
+bool laser_on = true;
 
 
 // ======== MAIN LOOP ========
 void loop() {
 
-  // loopStart = micros();
+  loopStart = micros();
 
   // --- Check for incoming 36-bit command ---
   if (Serial.available() > 4) {
-    uint8_t cmd = Serial.read() & 0x0F;
-    uint32_t payload = 0;
-    for (int i = 0; i < 4; i++) {
-      payload = (payload << 8) | Serial.read();
+    uint8_t b0 = Serial.read();       // first byte
+    uint8_t cmd = (b0 >> 4) & 0x0F;  // high nibble = command
+    uint64_t payload = b0 & 0x0F;    // low nibble = top 4 bits of payload
+
+    for (int i = 1; i < 5; i++) {
+        uint8_t b = Serial.read();
+        payload = (payload << 8) | b;
     }
     // Serial.print("RX CMD: 0b"); Serial.print(cmd, BIN);
     // Serial.print(", Payload: 0b"); Serial.println(payload, BIN);
     processCommand(cmd, payload);
   }
 
-  // timeForSerialCheck = micros() - loopStart;
+  timeForSerialCheck = micros() - loopStart;
 
   // --- Projection loop ---
   if (currentMode == MODE_PROJECT && isProjecting && fileSize > 2) {
     static uint32_t lastUpdateTime = 0;
     static uint16_t valA, valB;
+    static uint8_t on_off_nibble;
 
     if (micros() - lastUpdateTime >= currentDelayUs) {
 
-      // timeForIfStatement = micros() - loopStart - timeForSerialCheck;
+      timeForIfStatement = micros() - loopStart - timeForSerialCheck;
 
-      if (playbackFile.available() >= int(sizeof(valA) + sizeof(valB))) {
+      if (playbackFile.available() >= int(sizeof(valA) + sizeof(valB) + sizeof(on_off_nibble))) {
         playbackFile.read((byte*)&valA, sizeof(valA));
         playbackFile.read((byte*)&valB, sizeof(valB));
-        bytesRead += sizeof(valA) + sizeof(valB);
+        playbackFile.read((byte*)&on_off_nibble, sizeof(on_off_nibble));
+        bytesRead += sizeof(valA) + sizeof(valB) + sizeof(on_off_nibble);
         bytesRead %= fileSize; // Wrap around
 
-        // timeForBinaryRead = micros() - loopStart - timeForSerialCheck - timeForIfStatement;
+        timeForBinaryRead = micros() - loopStart - timeForSerialCheck - timeForIfStatement;
+
+        if (laser_on != on_off_nibble) {
+          if (on_off_nibble) {
+            toggleLaserOn();
+          } else {
+            toggleLaserOff();
+          }
+          laser_on = on_off_nibble;
+        }
 
         updateDAC(valA, valB);
 
-        // timeForDACUpdate = micros() - loopStart - timeForSerialCheck - timeForIfStatement - timeForBinaryRead;
+        timeForDACUpdate = micros() - loopStart - timeForSerialCheck - timeForIfStatement - timeForBinaryRead;
 
       } else {
         playbackFile.seek(0); // Loop to start
@@ -263,13 +289,13 @@ void loop() {
       lastUpdateTime = micros();
     }
   }
-  // i++; 
-  // if (i % 1000000 == 0 && isProjecting && currentMode == MODE_PROJECT) {
-  //   Serial.print("Loop time (µs): "); Serial.print(micros() - loopStart);
-  //   Serial.print("µs | Serial check: "); Serial.print(timeForSerialCheck);
-  //   Serial.print("µs | Binary read: "); Serial.print(timeForBinaryRead);
-  //   Serial.print("µs | DAC update: "); Serial.print(timeForDACUpdate);
-  // }
+  i++; 
+  if (i % 1000000 == 0 && isProjecting && currentMode == MODE_PROJECT) {
+    Serial.print("Loop time (µs): "); Serial.print(micros() - loopStart);
+    Serial.print("µs | Serial check: "); Serial.print(timeForSerialCheck);
+    Serial.print("µs | Binary read: "); Serial.print(timeForBinaryRead);
+    Serial.print("µs | DAC update: "); Serial.print(timeForDACUpdate);
+  }
 }
 
 // We are seeing a loop every 4 micro seconds (250kHz) --- ~4 microseconds are spent on updateDAC()
