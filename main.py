@@ -17,7 +17,6 @@ path = shapes.cartesianRectangle(space_inc, c, radius)
 path = shapes.project_onto_outward_curling_sphere(path, alpha, beta) # we need to decide if this method works for lines which cross X space.
 # path = shapes.hemiRectangle(space_inc, c, radius)
 # path = shapes.cartesianCircle(radius, angle_inc, c)
-# path = correct(path, alpha)
 
 sph_path = []
 for point in path:
