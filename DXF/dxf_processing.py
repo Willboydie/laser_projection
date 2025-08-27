@@ -14,7 +14,7 @@ except Exception:  # noqa: S110 broad-except acceptable for optional dep
 # "ELLIPSE"       # Ellipse defined by center, major axis, and minor axis
 # "LWPOLYLINE"    # Polyline defined by vertices and bulge values
 
-increment = 0.01
+increment = 0.001
 d_to_wall = 3.3 #m
 
 # "LINE"          # Straight line segment (two vertices)
@@ -731,7 +731,6 @@ def close_single_polyline(polyline):
 
 def extract_dxf_paths(dxf_file):
 	all_layers, num_points = read_dxf_vectors(dxf_file)
-
 	for layer in all_layers:
 		# join fragmented entities into continuous polylines
 		all_layers[layer] = join_polylines(all_layers[layer], tolerance=1e-4)
@@ -740,9 +739,9 @@ def extract_dxf_paths(dxf_file):
 		all_layers[layer] = [
 			resample_by_direction_change(
 				close_single_polyline(pl),
-				base_step=0.005,
-				min_step=0.000001,
-				max_step=0.005,
+				base_step=0.0005,
+				min_step=0.0000001,
+				max_step=0.0005,
 				alpha=5.0
 			)
 			for pl in all_layers[layer]
@@ -750,5 +749,5 @@ def extract_dxf_paths(dxf_file):
 
 		all_layers[layer] = [convert_to_wall_angles(pl) for pl in all_layers[layer]]
 
-	return all_layers
+	return all_layers, num_points
 

@@ -2,9 +2,11 @@ import dxf_processing as dxf
 import numpy as np
 import save
 
-all_layers = dxf.extract_dxf_paths("LowerBroich.dxf")
+all_layers, num_points = dxf.extract_dxf_paths("LowerBroich.dxf")
 layer = "INTERNAL_WALLS"
 polyline = all_layers[layer][4]
+
+print(polyline.shape)
 
 max_angle = np.pi/6
 save.createBinFile(polyline, max_angle)

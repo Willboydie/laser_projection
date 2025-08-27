@@ -1,197 +1,361 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 import serial
 import time
 import threading
+import os
 
 # Configuration
-SERIAL_PORT = 'COM4'  # Change to your Teensy's port
+SERIAL_PORT = 'COM3'  # Change to your Teensy's port
 BAUD_RATE = 115200
 
-# Command Definitions (4-bit)
-WRITE_CMD   = 0b0001
-PROJECT_CMD = 0b0010
-SAVE_CMD    = 0b0100
-PLAY_CMD    = 0b1001
-PAUSE_CMD   = 0b1010
-RESET_CMD   = 0b1111
+# Command Definitions (8-bit) - must match main.cpp
+WRITE_CMD   = 0b00000001
+PROJECT_CMD = 0b00000010
+SAVE_CMD    = 0b00000100
+PLAY_CMD    = 0b00001001
+PAUSE_CMD   = 0b00001010
+RESET_CMD   = 0b00001111
 
 class GalvoController:
     def __init__(self, master):
         self.master = master
         master.title("Galvo Controller")
-
+        master.geometry("500x600")
+        
         self.ser = None
-
-        # Serial connection button
-        self.connect_btn = tk.Button(master, text="Connect to Teensy", command=self.connect_serial)
-        self.connect_btn.pack(pady=5)
-
-        self.reset_btn = tk.Button(master, text="RESET", command=self.reset, state='disabled')
-        self.reset_btn.pack(pady=5)
-
-        # Mode buttons
-        self.write_btn = tk.Button(master, text="WRITE Mode", command=self.write_mode, state='disabled')
-        self.write_btn.pack(pady=5)
-
-        self.project_btn = tk.Button(master, text="PROJECT Mode", command=self.project_mode, state='disabled')
-        self.project_btn.pack(pady=5)
-
-        self.save_btn = tk.Button(master, text="Upload .bin file", command=self.save_data, state='disabled')
-        self.save_btn.pack(pady=5)
-
-        # Play section with dropdown for delay bit
-        play_frame = tk.Frame(master)
-        play_frame.pack(pady=5)
-
-        delay_label = tk.Label(play_frame, text="Points Per Second:")
-        delay_label.pack(side='left', padx=5)
-
-        # Define label-to-value mapping
-        self.delay_options = {
-            "Full Speed (250KHz)": 0,
-            "70KHz": 1,
-            "10KHz": 2,
-            "1KHz": 3,
-            "0.1KHz": 4
+        self.connected = False
+        self.current_file = None
+        
+        self.setup_ui()
+        
+    def setup_ui(self):
+        # Main frame with padding
+        main_frame = ttk.Frame(self.master, padding="10")
+        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Configure grid weights
+        self.master.columnconfigure(0, weight=1)
+        self.master.rowconfigure(0, weight=1)
+        main_frame.columnconfigure(1, weight=1)
+        
+        # Connection section
+        ttk.Label(main_frame, text="Connection:", font=('Arial', 12, 'bold')).grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=(0, 5))
+        
+        self.connect_btn = ttk.Button(main_frame, text="Connect to Teensy", command=self.connect_serial)
+        self.connect_btn.grid(row=1, column=0, columnspan=2, pady=5, sticky=(tk.W, tk.E))
+        
+        self.status_label = ttk.Label(main_frame, text="Disconnected", foreground="red")
+        self.status_label.grid(row=2, column=0, columnspan=2, pady=(0, 10))
+        
+        # Control section
+        ttk.Label(main_frame, text="Control:", font=('Arial', 12, 'bold')).grid(row=3, column=0, columnspan=2, sticky=tk.W, pady=(10, 5))
+        
+        # Mode buttons frame
+        mode_frame = ttk.Frame(main_frame)
+        mode_frame.grid(row=4, column=0, columnspan=2, pady=5, sticky=(tk.W, tk.E))
+        mode_frame.columnconfigure(0, weight=1)
+        mode_frame.columnconfigure(1, weight=1)
+        
+        self.reset_btn = ttk.Button(mode_frame, text="RESET", command=self.reset, state='disabled')
+        self.reset_btn.grid(row=0, column=0, padx=(0, 5), sticky=(tk.W, tk.E))
+        
+        self.write_btn = ttk.Button(mode_frame, text="WRITE Mode", command=self.write_mode, state='disabled')
+        self.write_btn.grid(row=0, column=1, padx=(5, 0), sticky=(tk.W, tk.E))
+        
+        self.project_btn = ttk.Button(mode_frame, text="PROJECT Mode", command=self.project_mode, state='disabled')
+        self.project_btn.grid(row=1, column=0, columnspan=2, pady=5, sticky=(tk.W, tk.E))
+        
+        # File section
+        ttk.Label(main_frame, text="File Operations:", font=('Arial', 12, 'bold')).grid(row=5, column=0, columnspan=2, sticky=tk.W, pady=(10, 5))
+        
+        file_frame = ttk.Frame(main_frame)
+        file_frame.grid(row=6, column=0, columnspan=2, pady=5, sticky=(tk.W, tk.E))
+        file_frame.columnconfigure(1, weight=1)
+        
+        ttk.Label(file_frame, text="File:").grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
+        self.file_label = ttk.Label(file_frame, text="No file selected", foreground="gray")
+        self.file_label.grid(row=0, column=1, sticky=(tk.W, tk.E))
+        
+        self.browse_btn = ttk.Button(file_frame, text="Browse", command=self.browse_file, state='disabled')
+        self.browse_btn.grid(row=1, column=0, pady=5, sticky=tk.W)
+        
+        self.upload_btn = ttk.Button(file_frame, text="Upload File", command=self.upload_file, state='disabled')
+        self.upload_btn.grid(row=1, column=1, pady=5, sticky=(tk.W, tk.E))
+        
+        # Playback section
+        ttk.Label(main_frame, text="Playback:", font=('Arial', 12, 'bold')).grid(row=7, column=0, columnspan=2, sticky=tk.W, pady=(10, 5))
+        
+        playback_frame = ttk.Frame(main_frame)
+        playback_frame.grid(row=8, column=0, columnspan=2, pady=5, sticky=(tk.W, tk.E))
+        playback_frame.columnconfigure(1, weight=1)
+        
+        ttk.Label(playback_frame, text="Speed:").grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
+        
+        # Define speed options with proper bit positions
+        self.speed_options = {
+            "Full Speed (250KHz)": 250,
+            "100KHz": 100,
+            "10KHz": 10,
+            "1KHz": 1,
         }
-
-        # Tkinter StringVar
-        self.delay_bit_var = tk.StringVar(value="Full Speed (250KHz)")
-
-        self.delay_dropdown = tk.OptionMenu(play_frame, self.delay_bit_var, *self.delay_options.keys())
-        self.delay_dropdown.config(width=16, state='disabled')
-        self.delay_dropdown.pack(side='left')
-
-        self.play_btn = tk.Button(play_frame, text="Play", command=self.play_command, state='disabled')
-        self.play_btn.pack(side='left', padx=5)
-
-        self.pause_btn = tk.Button(master, text="Pause/Resume", command=self.pause_command, state='disabled')
-        self.pause_btn.pack(pady=5)
-
+        
+        self.speed_var = tk.StringVar(value="Full Speed (250KHz)")
+        self.speed_combo = ttk.Combobox(playback_frame, textvariable=self.speed_var, 
+                                       values=list(self.speed_options.keys()), 
+                                       state='readonly', width=20)
+        self.speed_combo.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(5, 0))
+        self.speed_combo.config(state='disabled')
+        
+        # Playback buttons
+        btn_frame = ttk.Frame(playback_frame)
+        btn_frame.grid(row=1, column=0, columnspan=2, pady=5, sticky=(tk.W, tk.E))
+        btn_frame.columnconfigure(0, weight=1)
+        btn_frame.columnconfigure(1, weight=1)
+        
+        self.play_btn = ttk.Button(btn_frame, text="Play", command=self.play_command, state='disabled')
+        self.play_btn.grid(row=0, column=0, padx=(0, 5), sticky=(tk.W, tk.E))
+        
+        self.pause_btn = ttk.Button(btn_frame, text="Pause/Resume", command=self.pause_command, state='disabled')
+        self.pause_btn.grid(row=0, column=1, padx=(5, 0), sticky=(tk.W, tk.E))
+        
+        # Progress bar
+        self.progress_var = tk.DoubleVar()
+        self.progress_bar = ttk.Progressbar(main_frame, variable=self.progress_var, maximum=100)
+        self.progress_bar.grid(row=9, column=0, columnspan=2, pady=10, sticky=(tk.W, tk.E))
+        
         # Message display
-        self.message_text = tk.Text(master, height=10, width=50)
-        self.message_text.pack(pady=10)
+        ttk.Label(main_frame, text="Messages:", font=('Arial', 12, 'bold')).grid(row=10, column=0, columnspan=2, sticky=tk.W, pady=(10, 5))
+        
+        # Create a frame for the text widget and scrollbar
+        text_frame = ttk.Frame(main_frame)
+        text_frame.grid(row=11, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
+        text_frame.columnconfigure(0, weight=1)
+        text_frame.rowconfigure(0, weight=1)
+        main_frame.rowconfigure(11, weight=1)
+        
+        self.message_text = tk.Text(text_frame, height=8, width=60, wrap=tk.WORD)
+        scrollbar = ttk.Scrollbar(text_frame, orient=tk.VERTICAL, command=self.message_text.yview)
+        self.message_text.configure(yscrollcommand=scrollbar.set)
+        
+        self.message_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+
+    def log_message(self, message):
+        """Thread-safe message logging"""
+        self.master.after(0, lambda: self._log_message(message))
+    
+    def _log_message(self, message):
+        """Internal message logging (called on main thread)"""
+        timestamp = time.strftime("%H:%M:%S")
+        self.message_text.insert(tk.END, f"[{timestamp}] {message}\n")
+        self.message_text.see(tk.END)
+        self.master.update_idletasks()
 
     def connect_serial(self):
+        """Connect to Teensy via serial"""
         try:
             self.ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
             time.sleep(2)  # Wait for Teensy to initialize
-            self.message_text.insert(tk.END, "Connected to Teensy.\n")
+            
+            self.connected = True
+            self.status_label.config(text="Connected", foreground="green")
             self.connect_btn.config(state='disabled')
-            self.enable_mode_buttons()
+            
+            # Enable control buttons
+            self.reset_btn.config(state='normal')
+            self.write_btn.config(state='normal')
+            self.project_btn.config(state='normal')
+            self.browse_btn.config(state='normal')
+            
+            self.log_message("Connected to Teensy successfully")
+            
+            # Start serial reading thread
             threading.Thread(target=self.read_serial, daemon=True).start()
+            
         except Exception as e:
+            self.log_message(f"Connection failed: {e}")
             messagebox.showerror("Connection Error", f"Failed to connect: {e}")
 
-    def enable_mode_buttons(self):
-        self.write_btn.config(state='normal')
-        self.project_btn.config(state='normal')
-        self.reset_btn.config(state='normal')
-
-    def enable_write_buttons(self):
-        self.write_btn.config(state='normal')
-        self.save_btn.config(state='normal')
-        self.project_btn.config(state='normal')
-        self.play_btn.config(state='disabled')
-        self.pause_btn.config(state='disabled')
-        self.delay_dropdown.config(state='disabled')
-
-    def enable_project_buttons(self):
-        self.write_btn.config(state='normal')
-        self.save_btn.config(state='disabled')
-        self.project_btn.config(state='normal')
-        self.play_btn.config(state='normal')
-        self.pause_btn.config(state='normal')
-        self.delay_dropdown.config(state='normal')
-
-    def send_command(self, cmd, payload=0):
-        if not self.ser:
+    def send_command(self, cmd, payload_bytes=None):
+        """
+        Send a 6-byte packet to Teensy
+        cmd: 1 byte
+        payload_bytes: 5 bytes (as bytes object or integer)
+        """
+        if not self.connected or not self.ser:
             messagebox.showwarning("Not Connected", "Please connect to Teensy first.")
-            return
+            return False
 
-        # Simplified for control commands if needed later; not used for file streaming
-        b0 = ((cmd & 0x0F) << 4) | ((payload >> 32) & 0x0F)
-        data = bytes([
-            b0 & 0xFF,
-            (payload >> 24) & 0xFF,
-            (payload >> 16) & 0xFF,
-            (payload >> 8) & 0xFF,
-            payload & 0xFF
-        ])
-        self.ser.write(data)
+        try:
+            if payload_bytes is None:
+                # For commands without payload, send zeros
+                data = bytes([cmd, 0, 0, 0, 0, 0])
+            elif isinstance(payload_bytes, bytes):
+                # If payload is already bytes, use it directly
+                if len(payload_bytes) != 5:
+                    raise ValueError("Payload must be exactly 5 bytes")
+                data = bytes([cmd]) + payload_bytes
+            else:
+                # If payload is integer, convert to 5 bytes
+                data = bytes([
+                    cmd,
+                    (payload_bytes >> 32) & 0xFF,
+                    (payload_bytes >> 24) & 0xFF,
+                    (payload_bytes >> 16) & 0xFF,
+                    (payload_bytes >> 8) & 0xFF,
+                    payload_bytes & 0xFF
+                ])
+            
+            self.ser.write(data)
+            self.ser.flush()
+            return True
+        except Exception as e:
+            self.log_message(f"Failed to send command: {e}")
+            return False
 
     def write_mode(self):
-        self.send_command(WRITE_CMD)
-        self.enable_write_buttons()
-        time.sleep(0.2)
+        """Switch to WRITE mode"""
+        if self.send_command(WRITE_CMD, None):
+            self.log_message("Switched to WRITE mode")
+            self.upload_btn.config(state='normal')
+            self.play_btn.config(state='disabled')
+            self.pause_btn.config(state='disabled')
+            self.speed_combo.config(state='disabled')
 
     def project_mode(self):
-        self.send_command(PROJECT_CMD)
-        self.enable_project_buttons()
-        time.sleep(0.2)
+        """Switch to PROJECT mode"""
+        if self.send_command(PROJECT_CMD, None):
+            self.log_message("Switched to PROJECT mode")
+            self.upload_btn.config(state='disabled')
+            self.play_btn.config(state='normal')
+            self.pause_btn.config(state='normal')
+            self.speed_combo.config(state='readonly')
 
     def reset(self):
-        self.send_command(RESET_CMD)
-        self.enable_mode_buttons()
-        time.sleep(2)
+        """Reset Teensy"""
+        if self.send_command(RESET_CMD, None):
+            self.log_message("Reset command sent")
+            time.sleep(2)  # Wait for reset to complete
 
-    def save_data(self):
-        file_path = "data/circle.bin"
-        if not file_path:
+    def browse_file(self):
+        """Open file dialog to select .bin file"""
+        file_path = filedialog.askopenfilename(
+            title="Select .bin file",
+            filetypes=[("Binary files", "*.bin"), ("All files", "*.*")]
+        )
+        if file_path:
+            self.current_file = file_path
+            filename = os.path.basename(file_path)
+            self.file_label.config(text=filename, foreground="black")
+            self.log_message(f"Selected file: {filename}")
+
+    def upload_file(self):
+        """Upload selected file to Teensy"""
+        if not self.current_file:
+            messagebox.showwarning("No File", "Please select a file first.")
+            return
+            
+        if not os.path.exists(self.current_file):
+            messagebox.showerror("File Error", "Selected file does not exist.")
             return
 
         try:
-            self.message_text.insert(tk.END, "Uploading file...\n")
-            self.message_text.update_idletasks()
-
+            self.log_message("Starting file upload...")
+            self.progress_var.set(0)
+            
             # Ensure Teensy is in WRITE mode
-            self.send_command(WRITE_CMD)
+            self.send_command(WRITE_CMD, None)
             time.sleep(0.1)
-
-            with open(file_path, 'rb') as f:
-                # Source file is 5-byte records (valA, valB, laser_on)
-                while True:
-                    payload5 = f.read(5 * 512)
-                    if not payload5:
-                        break
-                    rem = len(payload5) % 5
-                    if rem:
-                        payload5 = payload5[:-rem]
-                    if not payload5:
-                        continue
-                    # Prepend SAVE_CMD byte for each 5-byte record → send 6-byte packets
-                    out = bytearray()
-                    for i in range(0, len(payload5), 5):
-                        out.append(SAVE_CMD & 0xFF)
-                        out.extend(payload5[i:i+5])
-                    self.ser.write(out)
-            self.message_text.insert(tk.END, "File uploaded successfully.\n")
+            
+            file_size = os.path.getsize(self.current_file)
+            bytes_sent = 0
+            
+            with open(self.current_file, 'rb') as f:
+                 while True:
+                     # Read 5 bytes at a time (valA, valB, laser_on)
+                     data = f.read(5)
+                     if not data:
+                         break
+                     
+                     # Only process complete 5-byte records
+                     if len(data) == 5:
+                         # Send SAVE_CMD + 5 bytes of data
+                         packet = bytes([SAVE_CMD]) + data
+                         try:
+                             self.ser.write(packet)
+                             self.ser.flush()  # Ensure data is sent immediately
+                             
+                             bytes_sent += 5
+                             progress = (bytes_sent / file_size) * 100
+                             self.progress_var.set(progress)
+                             self.master.update_idletasks()
+                             
+                             # Small delay to prevent overwhelming the serial buffer
+                             time.sleep(0.001)
+                         except Exception as e:
+                             self.log_message(f"Error sending packet: {e}")
+                             raise
+                     else:
+                         # Incomplete record at end of file - skip it
+                         self.log_message(f"Warning: Skipping incomplete record ({len(data)} bytes)")
+                         break
+            
+            self.progress_var.set(100)
+            self.log_message(f"File upload completed: {bytes_sent} bytes sent")
+            
         except Exception as e:
-            messagebox.showerror("File Error", f"Failed to read file: {e}")
+            self.log_message(f"Upload failed: {e}")
+            messagebox.showerror("Upload Error", f"Failed to upload file: {e}")
 
     def play_command(self):
-        selected_label = self.delay_bit_var.get()
-        delay_bit = self.delay_options[selected_label]
-        payload = 1 << (32 - delay_bit)
-        self.send_command(PLAY_CMD, payload)
-        time.sleep(0.2)
+        """Start playback with selected speed"""
+        selected_speed = self.speed_var.get()
+        if selected_speed not in self.speed_options:
+            messagebox.showwarning("Invalid Speed", "Please select a valid speed.")
+            return
+            
+        freq_KHz = self.speed_options[selected_speed]
+        payload_bytes = bytes([freq_KHz, 0, 0, 0, 0])
+        
+        if self.send_command(PLAY_CMD, payload_bytes):
+            self.log_message(f"Started playback at {selected_speed}")
 
     def pause_command(self):
-        self.send_command(PAUSE_CMD)
-        time.sleep(0.2)
+        """Pause/resume playback"""
+        if self.send_command(PAUSE_CMD, None):
+            self.log_message("Pause/Resume command sent")
 
     def read_serial(self):
-        while self.ser and self.ser.is_open:
-            if self.ser.in_waiting:
-                try:
-                    line = self.ser.readline().decode().strip()
+        """Read serial messages from Teensy"""
+        while self.connected and self.ser and self.ser.is_open:
+            try:
+                if self.ser.in_waiting:
+                    line = self.ser.readline().decode('utf-8', errors='ignore').strip()
                     if line:
-                        self.message_text.insert(tk.END, f"Teensy: {line}\n")
-                        self.message_text.see(tk.END)
-                except Exception:
-                    pass
-            time.sleep(0.05)
+                        self.log_message(f"Teensy: {line}")
+                else:
+                    time.sleep(0.01)  # Reduced polling frequency
+            except Exception as e:
+                self.log_message(f"Serial read error: {e}")
+                break
+        
+        # Connection lost
+        self.connected = False
+        self.master.after(0, self.handle_disconnection)
+    
+    def handle_disconnection(self):
+        """Handle disconnection from Teensy"""
+        self.status_label.config(text="Disconnected", foreground="red")
+        self.connect_btn.config(state='normal')
+        
+        # Disable all buttons
+        for btn in [self.reset_btn, self.write_btn, self.project_btn, 
+                   self.browse_btn, self.upload_btn, self.play_btn, self.pause_btn]:
+            btn.config(state='disabled')
+        
+        self.speed_combo.config(state='disabled')
+        self.log_message("Disconnected from Teensy")
 
 if __name__ == "__main__":
     root = tk.Tk()
