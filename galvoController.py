@@ -110,11 +110,13 @@ class GalvoController:
             messagebox.showwarning("Not Connected", "Please connect to Teensy first.")
             return
 
+        # Simplified for control commands if needed later; not used for file streaming
+        b0 = ((cmd & 0x0F) << 4) | ((payload >> 32) & 0x0F)
         data = bytes([
-            ((cmd & 0x0F) << 4) | ((payload >> 32) & 0x0F),  # top nibble cmd, bottom nibble payload
+            b0 & 0xFF,
             (payload >> 24) & 0xFF,
             (payload >> 16) & 0xFF,
-            (payload >> 8)  & 0xFF,
+            (payload >> 8) & 0xFF,
             payload & 0xFF
         ])
         self.ser.write(data)
@@ -135,7 +137,7 @@ class GalvoController:
         time.sleep(2)
 
     def save_data(self):
-        file_path = "data/path.bin"
+        file_path = "data/circle.bin"
         if not file_path:
             return
 
@@ -143,15 +145,27 @@ class GalvoController:
             self.message_text.insert(tk.END, "Uploading file...\n")
             self.message_text.update_idletasks()
 
+            # Ensure Teensy is in WRITE mode
+            self.send_command(WRITE_CMD)
+            time.sleep(0.1)
+
             with open(file_path, 'rb') as f:
-                data = f.read()
-                
-                for i in range(0, len(data), 5):
-                    valA = int.from_bytes(data[i:i+2], 'big')  # 16 bits
-                    valB = int.from_bytes(data[i+2:i+4], 'big')  # 16 bits
-                    laser_on = bool(data[i+4])  # single byte → bool
-                    payload = (valA << 17) | (valB << 1) | laser_on
-                    self.send_command(SAVE_CMD, payload)
+                # Source file is 5-byte records (valA, valB, laser_on)
+                while True:
+                    payload5 = f.read(5 * 512)
+                    if not payload5:
+                        break
+                    rem = len(payload5) % 5
+                    if rem:
+                        payload5 = payload5[:-rem]
+                    if not payload5:
+                        continue
+                    # Prepend SAVE_CMD byte for each 5-byte record → send 6-byte packets
+                    out = bytearray()
+                    for i in range(0, len(payload5), 5):
+                        out.append(SAVE_CMD & 0xFF)
+                        out.extend(payload5[i:i+5])
+                    self.ser.write(out)
             self.message_text.insert(tk.END, "File uploaded successfully.\n")
         except Exception as e:
             messagebox.showerror("File Error", f"Failed to read file: {e}")

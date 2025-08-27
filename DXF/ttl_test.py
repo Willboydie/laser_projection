@@ -1,13 +1,13 @@
 import dxf_processing as dxf
-import json
 import numpy as np
+import save
 
 all_layers = dxf.extract_dxf_paths("LowerBroich.dxf")
 layer = "INTERNAL_WALLS"
 polyline = all_layers[layer][4]
 
-print(np.array(polyline)[:, -1])
-
+max_angle = np.pi/6
+save.createBinFile(polyline, max_angle)
 
 import matplotlib.pyplot as plt
 import numpy as np

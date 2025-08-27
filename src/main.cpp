@@ -92,25 +92,8 @@ void wipeFile() {
   }
 }
 
-// void verifyFileContents() {
-//     File verifyFile = SD.open("data.bin", FILE_READ);
-//     if (verifyFile) {
-//         Serial.println("File contents:");
-//         while (verifyFile.available() > 4) {
-//             uint16_t a, b;
-//             verifyFile.read((byte*)&a, sizeof(a));
-//             verifyFile.read((byte*)&b, sizeof(b));
-//             Serial.print("A=0x"); Serial.print(a, HEX);
-//             Serial.print(", B=0x"); Serial.println(b, HEX);
-//         }
-//         verifyFile.close();
-//     } else {
-//         Serial.println("Could not open file for verification");
-//     }
-// }
-
 // ======== COMMAND PROCESSING ========
-void processCommand(uint8_t cmd, uint32_t payload) {
+void processCommand(uint8_t cmd, uint64_t payload) {  // Changed to uint64_t
 
   if (cmd == WRITE_CMD || cmd == PROJECT_CMD) {
     if (playbackFile) {
@@ -135,9 +118,6 @@ void processCommand(uint8_t cmd, uint32_t payload) {
       break;
 
     case PROJECT_CMD:
-      // if (currentMode == MODE_WRITE) {
-      //   verifyFileContents(); // Verify contents before switching to PROJECT
-      // }
       currentMode = MODE_PROJECT;
       isProjecting = false;
       updateFileSize(); // Refresh file size
@@ -146,36 +126,14 @@ void processCommand(uint8_t cmd, uint32_t payload) {
 
     // --- Write mode commands ---
     case SAVE_CMD:
-      if (currentMode == MODE_WRITE) {
-          uint16_t valA = (payload >> 16) & 0xFFFF;
-          uint16_t valB = payload & 0xFFFF;
-          dataFile = SD.open("data.bin", FILE_WRITE);
-          if (dataFile) {
-              size_t writtenA = dataFile.write((byte*)&valA, sizeof(valA));
-              size_t writtenB = dataFile.write((byte*)&valB, sizeof(valB));
-              dataFile.flush();  // Force write to disk
-              dataFile.close();
-              
-              if (writtenA == sizeof(valA) && writtenB == sizeof(valB)) {
-                  bytesWritten += sizeof(valA) + sizeof(valB);
-                  fileSize = bytesWritten;
-                  // Serial.print("SAVED: A=0b"); Serial.print(valA, BIN);
-                  // Serial.print(", B=0b"); Serial.print(valB, BIN);
-                  // Serial.print(" | Total bytes: "); Serial.println(fileSize);
-              } else {
-                  Serial.println("SD ERROR: Write failed!");
-              }
-          } else {
-              Serial.println("SD ERROR: Failed to open file!");
-          }
-      }
+      // No longer used for per-point writes; raw 6-byte packets are handled in loop() when in MODE_WRITE
       break;
 
     // --- Project mode commands ---
     case PLAY_CMD:
       if (currentMode == MODE_PROJECT) {
 
-        const uint32_t recordSize = sizeof(uint16_t) * 2 + sizeof(uint8_t);
+        const uint32_t recordSize = sizeof(uint16_t) * 2 + sizeof(uint8_t);  // 5 bytes per record
         updateFileSize();
         if (fileSize < recordSize) {
           Serial.println("PLAYBACK ERROR: File too small or empty for a record.");
@@ -190,10 +148,10 @@ void processCommand(uint8_t cmd, uint32_t payload) {
             isProjecting = false;
             return;
           }
-        playbackFile.seek(bytesRead % fileSize); // Resume from last position
+          playbackFile.seek(bytesRead % fileSize); // Resume from last position
         }
         
-        currentDelayUs = calculateDelayUs(payload);
+        currentDelayUs = calculateDelayUs((uint32_t)(payload & 0xFFFFFFFF));  // FIXED: Cast to uint32_t
         isProjecting = true;
         Serial.print("PLAYBACK: Started from byte ");
         Serial.print(bytesRead % fileSize); // Resume position
@@ -226,55 +184,75 @@ uint32_t timeForDACUpdate;
 uint32_t timeForIfStatement;
 bool laser_on = true;
 
-
 // ======== MAIN LOOP ========
 void loop() {
 
   loopStart = micros();
 
-  // --- Check for incoming 36-bit command ---
-  if (Serial.available() > 4) {
+  // --- Check for incoming 40-bit command ---
+  if (Serial.available() => 5) {
     uint8_t b0 = Serial.read();       // first byte
     uint8_t cmd = (b0 >> 4) & 0x0F;  // high nibble = command
     uint64_t payload = b0 & 0x0F;    // low nibble = top 4 bits of payload
 
-    for (int i = 1; i < 5; i++) {
+    for (int i = 1; i < 6; i++) {
         uint8_t b = Serial.read();
         payload = (payload << 8) | b;
     }
     // Serial.print("RX CMD: 0b"); Serial.print(cmd, BIN);
-    // Serial.print(", Payload: 0b"); Serial.println(payload, BIN);
+    // Serial.print(", Payload: 0b"); Serial.println((uint32_t)payload, BIN);
     processCommand(cmd, payload);
   }
 
   timeForSerialCheck = micros() - loopStart;
 
+  // --- In WRITE mode, accept raw 6-byte packets (cmd, valA, valB, laser_on) ---
+  if (currentMode == MODE_WRITE) {
+    while (Serial.available() >= 6) {
+      uint8_t cmd_byte;
+      uint8_t rest[5];
+      Serial.readBytes(&cmd_byte, 1);
+      Serial.readBytes(rest, 5);
+      // Save ONLY last 5 bytes to SD
+      dataFile = SD.open("data.bin", FILE_WRITE);
+      if (dataFile) {
+        size_t w = dataFile.write(rest, 5);
+        dataFile.flush();
+        dataFile.close();
+        if (w == 5) { bytesWritten += 5; fileSize = bytesWritten; }
+      } else {
+        Serial.println("SD ERROR: Failed to open file for write packet!");
+      }
+    }
+  }
+
   // --- Projection loop ---
-  if (currentMode == MODE_PROJECT && isProjecting && fileSize > 2) {
+  if (currentMode == MODE_PROJECT && isProjecting && fileSize > 4) {  // FIXED: Changed from 2 to 4 (minimum record size)
     static uint32_t lastUpdateTime = 0;
     static uint16_t valA, valB;
-    static uint8_t on_off_nibble;
+    static uint8_t on_off_signal;
 
     if (micros() - lastUpdateTime >= currentDelayUs) {
 
       timeForIfStatement = micros() - loopStart - timeForSerialCheck;
 
-      if (playbackFile.available() >= int(sizeof(valA) + sizeof(valB) + sizeof(on_off_nibble))) {
+      const int recordSize = sizeof(valA) + sizeof(valB) + sizeof(on_off_signal); // 5 bytes on disk
+      if (playbackFile.available() >= recordSize) {
         playbackFile.read((byte*)&valA, sizeof(valA));
         playbackFile.read((byte*)&valB, sizeof(valB));
-        playbackFile.read((byte*)&on_off_nibble, sizeof(on_off_nibble));
-        bytesRead += sizeof(valA) + sizeof(valB) + sizeof(on_off_nibble);
+        playbackFile.read((byte*)&laser_on, sizeof(on_off_signal));
+        bytesRead += recordSize;
         bytesRead %= fileSize; // Wrap around
 
         timeForBinaryRead = micros() - loopStart - timeForSerialCheck - timeForIfStatement;
 
-        if (laser_on != on_off_nibble) {
-          if (on_off_nibble) {
+        if (laser_on != on_off_signal) {
+          if (laser_on) {
             toggleLaserOn();
           } else {
             toggleLaserOff();
           }
-          laser_on = on_off_nibble;
+          laser_on = on_off_signal;
         }
 
         updateDAC(valA, valB);
@@ -289,12 +267,14 @@ void loop() {
       lastUpdateTime = micros();
     }
   }
+  
   i++; 
   if (i % 1000000 == 0 && isProjecting && currentMode == MODE_PROJECT) {
     Serial.print("Loop time (µs): "); Serial.print(micros() - loopStart);
     Serial.print("µs | Serial check: "); Serial.print(timeForSerialCheck);
     Serial.print("µs | Binary read: "); Serial.print(timeForBinaryRead);
     Serial.print("µs | DAC update: "); Serial.print(timeForDACUpdate);
+    Serial.println();
   }
 }
 

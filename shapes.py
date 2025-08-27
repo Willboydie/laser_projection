@@ -90,25 +90,6 @@ def toSpherical(cart_point):
 
 
 
-def correct_bulge(path, alpha):  ## ya obsoleto
-    for point in path:
-        x, y, z = point
-        if y > 0 and z > 0:
-            point[1] = y - z/abs(z) * (alpha * (z**2 - 34.5**2))
-            point[2] = z + y/abs(y) * (alpha * (y**2 - 34.5**2))
-        elif y < 0 and z > 0:
-            point[1] = y + z/abs(z) * (alpha * (z**2 - 34.5**2))
-            point[2] = z - y/abs(y) * (alpha * (y**2 - 34.5**2))
-        elif y < 0 and z < 0:
-            point[1] = y - z/abs(z) * (alpha * (z**2 - 34.5**2))
-            point[2] = z + y/abs(y) * (alpha * (y**2 - 34.5**2))
-        elif y > 0 and z < 0:
-            point[1] = y + z/abs(z) * (alpha * (z**2 - 34.5**2))
-            point[2] = z - y/abs(y) * (alpha * (y**2 - 34.5**2))
-
-    return path
-
-
 def project_onto_outward_curling_sphere(cart_path, alpha, beta):
     for point in cart_path:
         x, y, z = point

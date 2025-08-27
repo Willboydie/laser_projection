@@ -14,7 +14,8 @@ except Exception:  # noqa: S110 broad-except acceptable for optional dep
 # "ELLIPSE"       # Ellipse defined by center, major axis, and minor axis
 # "LWPOLYLINE"    # Polyline defined by vertices and bulge values
 
-increment = 0.1
+increment = 0.01
+d_to_wall = 3.3 #m
 
 # "LINE"          # Straight line segment (two vertices)
 def process_line(entity_dxf):
@@ -198,8 +199,9 @@ def read_dxf_vectors(file_path):
                     entity_points += process_arc(entity_dxf)
                 
                 if len(entity_points) > 0: 
-                    points.append(entity_points)
+                    points.append(list(np.array(entity_points) - np.array([2.641e5, 6.9514e5, 0.0])))
                     num_points += len(entity_points)
+
                     
         all_layers[layer] = points
 
@@ -510,7 +512,67 @@ def reorder_polylines(polylines: List[List[List[float]]], use_kdtree: bool = Tru
 	return _materialize(polylines, best_order)
 #=========================================
 
+def toSpherical(cart_point):
+    x, y, z = cart_point
+    r = np.sqrt(x**2 + y**2 + z**2)
+    
+    if r == 0:
+        return [0, 0]  # Handle origin
+    
+    phi = np.arcsin(np.clip(z/r, -1, 1))
+    
+    rho = r * np.cos(phi)
+    if abs(rho) < 1e-10:  # Near poles
+        theta = 0
+    else:
+        theta = np.arcsin(np.clip(y/rho, -1, 1))
+    
+    return [theta, phi]
 
+def project_onto_outward_curling_sphere(cart_path, alpha=1, beta=0.5):
+    cart_path = np.array(cart_path)
+    for i, point in enumerate(cart_path):
+        x, y, z = point[:3]
+        discriminant = x**2 + alpha*y**2 - beta*z**2
+        if discriminant >= 0:
+            cart_path[i, 0] = 2*x - np.sqrt(discriminant)
+    return cart_path
+
+def toWallCoords(cart_path, d_to_wall):
+    cart_path = np.asarray(cart_path, dtype=np.float64)
+    
+    def normalize_robust(vals):
+        v_min, v_max = np.min(vals), np.max(vals)
+        if v_max == v_min:
+            return np.zeros_like(vals)
+        return 2 * (vals - (v_max + v_min)/2) / (v_max - v_min)
+    
+    normal_xs = normalize_robust(cart_path[:, 0])
+    normal_ys = normalize_robust(cart_path[:, 1]) 
+    normal_zs = normalize_robust(cart_path[:, 2])
+    
+    wall_coords = np.column_stack([
+        normal_zs + d_to_wall,  # wall_x
+        normal_xs,              # wall_y  
+        normal_ys,              # wall_z
+        cart_path[:, 3]         # laser_ons
+    ])
+    
+    return wall_coords
+
+def convert_to_wall_angles(cart_path, d_to_wall=1.0):
+    wall_coords = toWallCoords(cart_path, d_to_wall)
+    corrected_path = project_onto_outward_curling_sphere(wall_coords)
+    
+    sph_path = []
+    for point in corrected_path:
+        x, y, z, laser_on = point
+        theta, phi = toSpherical([x, y, z])
+        sph_path.append([theta, phi, laser_on])
+    
+    return np.array(sph_path)
+
+#=======================================
 
 def resample_by_direction_change(polyline, base_step=0.05, min_step=0.00001, max_step=0.05, alpha=5.0):
 	"""
@@ -599,16 +661,26 @@ def close_single_polyline(polyline):
 	  laser_on=0 for closure points.
 	"""
 	if not polyline or len(polyline) < 2:
-		return polyline
+		# Return a single 4D point if polyline is too short
+		if not polyline:
+			return [[0.0, 0.0, 0.0, 1.0]]
+		# Convert the single point to 4D format
+		point = polyline[0]
+		if len(point) == 3:
+			return [[point[0], point[1], point[2], 1.0]]
+		elif len(point) == 4:
+			return [point]
+		else:  # 2D point
+			return [[point[0], point[1], 0.0, 1.0]]
 
 	# Convert input to 4D format if needed
 	if len(polyline[0]) == 3:
-		polyline_4d = [[point[0], point[1], point[2], 1] for point in polyline]
+		polyline_4d = [[point[0], point[1], point[2], 1.0] for point in polyline]
 	elif len(polyline[0]) == 4:
 		polyline_4d = polyline.copy()
 	else:
 		# Handle 2D points
-		polyline_4d = [[point[0], point[1], 0.0, 1] for point in polyline]
+		polyline_4d = [[point[0], point[1], 0.0, 1.0] for point in polyline]
 
 	start = polyline_4d[0][:3]  # Extract x,y,z coordinates
 	end = polyline_4d[-1][:3]
@@ -627,8 +699,7 @@ def close_single_polyline(polyline):
 	if length <= tol:
 		# ensure dimensional consistency; do not mutate input
 		start_xyz = [x1, y1, z1, 1]
-		if len(polyline_4d[-1][:3]) == 3 and polyline_4d[-1][2] == start_xyz[2]:
-			return polyline_4d
+		# Always return 4D points, replacing the last point with the start point
 		return polyline_4d[:-1] + [start_xyz]
 
 	# Determine spatial step
@@ -653,7 +724,7 @@ def close_single_polyline(polyline):
 		closed_points.extend([[float(xs[i]), float(ys[i]), float(zs[i]), 0] for i in range(len(ts))])
 
 	# Append the exact starting vertex to explicitly close the loop
-	closed_points.append([x1, y1, z1, 1])
+	closed_points.append([x1, y1, z1, 1.0])
 
 	return polyline_4d + closed_points
 
@@ -669,13 +740,15 @@ def extract_dxf_paths(dxf_file):
 		all_layers[layer] = [
 			resample_by_direction_change(
 				close_single_polyline(pl),
-				base_step=0.05,
-				min_step=0.00001,
-				max_step=0.05,
+				base_step=0.005,
+				min_step=0.000001,
+				max_step=0.005,
 				alpha=5.0
 			)
 			for pl in all_layers[layer]
 		]
+
+		all_layers[layer] = [convert_to_wall_angles(pl) for pl in all_layers[layer]]
 
 	return all_layers
 
