@@ -6,7 +6,7 @@ import threading
 import os
 
 # Configuration
-SERIAL_PORT = 'COM3'  # Change to your Teensy's port
+SERIAL_PORT = 'COM4'  # Change to your Teensy's port
 BAUD_RATE = 115200
 
 # Command Definitions (8-bit) - must match main.cpp
@@ -96,6 +96,9 @@ class GalvoController:
         self.speed_options = {
             "Full Speed (250KHz)": 250,
             "100KHz": 100,
+            "75KHz": 75,
+            "50KHz": 50,
+            "25KHz": 25,
             "10KHz": 10,
             "1KHz": 1,
         }
@@ -240,8 +243,16 @@ class GalvoController:
 
     def browse_file(self):
         """Open file dialog to select .bin file"""
+        data_dir = os.path.join(os.getcwd(), "data")
+        
+        # Check if data directory exists
+        if not os.path.exists(data_dir):
+            self.log_message("Error: 'data' folder not found in current directory")
+            return
+        
         file_path = filedialog.askopenfilename(
             title="Select .bin file",
+            initialdir=data_dir,
             filetypes=[("Binary files", "*.bin"), ("All files", "*.*")]
         )
         if file_path:
@@ -263,10 +274,6 @@ class GalvoController:
         try:
             self.log_message("Starting file upload...")
             self.progress_var.set(0)
-            
-            # Ensure Teensy is in WRITE mode
-            self.send_command(WRITE_CMD, None)
-            time.sleep(0.1)
             
             file_size = os.path.getsize(self.current_file)
             bytes_sent = 0

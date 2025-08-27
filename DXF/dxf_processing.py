@@ -14,7 +14,7 @@ except Exception:  # noqa: S110 broad-except acceptable for optional dep
 # "ELLIPSE"       # Ellipse defined by center, major axis, and minor axis
 # "LWPOLYLINE"    # Polyline defined by vertices and bulge values
 
-increment = 0.001
+increment = 0.005
 d_to_wall = 3.3 #m
 
 # "LINE"          # Straight line segment (two vertices)
@@ -739,9 +739,9 @@ def extract_dxf_paths(dxf_file):
 		all_layers[layer] = [
 			resample_by_direction_change(
 				close_single_polyline(pl),
-				base_step=0.0005,
-				min_step=0.0000001,
-				max_step=0.0005,
+				base_step=0.0025,
+				min_step=0.0000005,
+				max_step=0.0025,
 				alpha=5.0
 			)
 			for pl in all_layers[layer]

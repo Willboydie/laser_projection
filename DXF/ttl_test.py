@@ -7,9 +7,10 @@ layer = "INTERNAL_WALLS"
 polyline = all_layers[layer][4]
 
 print(polyline.shape)
+print(polyline[0], polyline[-3])
 
 max_angle = np.pi/6
-save.createBinFile(polyline, max_angle)
+save.createBinFile(polyline, max_angle, max_int=50000.0)
 
 import matplotlib.pyplot as plt
 import numpy as np
