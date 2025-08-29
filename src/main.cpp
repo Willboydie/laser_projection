@@ -254,9 +254,16 @@ void loop() {
       timeForIfStatement = micros() - loopStart - timeForSerialCheck;
 
       if (playbackFile.available() >= RECORD_SIZE) {
-        playbackFile.read((byte*)&valA, sizeof(valA));
-        playbackFile.read((byte*)&valB, sizeof(valB));
+        // Read bytes and convert from big-endian to native endianness
+        uint8_t valA_bytes[2], valB_bytes[2];
+        playbackFile.read(valA_bytes, 2);
+        playbackFile.read(valB_bytes, 2);
         playbackFile.read((byte*)&on_off_signal, sizeof(on_off_signal));
+        
+        // Convert from big-endian to native endianness
+        valA = (valA_bytes[0] << 8) | valA_bytes[1];  // Big-endian to native
+        valB = (valB_bytes[0] << 8) | valB_bytes[1];  // Big-endian to native
+        
         bytesRead += RECORD_SIZE;
         bytesRead %= fileSize; // Wrap around
 

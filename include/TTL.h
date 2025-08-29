@@ -5,6 +5,7 @@
 void initTTL() {
     pinMode(LASER_ON, OUTPUT);
     digitalWrite(LASER_ON, HIGH);
+    Serial.println("Laser initialized");
 }
 
 void toggleLaserOff() {

@@ -10,7 +10,7 @@ print(polyline.shape)
 print(polyline[0], polyline[-3])
 
 max_angle = np.pi/6
-save.createBinFile(polyline, max_angle, max_int=50000.0)
+save.createBinFile(polyline, max_angle, max_range=35000.0)
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,9 +18,9 @@ fig, ax = plt.subplots(figsize=(10, 10))
 
 entity = polyline
    
-x = np.array(entity)[:, 0]
-y = np.array(entity)[:, 1]
+theta = np.array(entity)[:, 0]
+phi = np.array(entity)[:, 1]
 
-ax.plot(x, y, 'bo', ms=0.5)
+ax.plot(theta, phi, 'bo', ms=0.5)
 
 plt.show()
