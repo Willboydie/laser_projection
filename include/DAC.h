@@ -48,7 +48,7 @@ void initDAC() {
     Serial.println("Internal reference enabled");
 
     sendSPICommand(0b00011111, (int)65535/2.0); // Set Dac A+B to 0V
-    delay(3000); // Wait for DAC to settle
+    delay(1000); // Wait for DAC to settle
 }
 
 

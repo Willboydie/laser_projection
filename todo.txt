@@ -1,0 +1,16 @@
+TO DO:
+
+- DXF
+--- Remove [2.641e5, 6.9514e5, 0.0]
+--- Deal with elevation
+--- Deal with paperspace and blocks
+--- Deal with unused entities and layers
+
+- Spherical Path Processing
+--- Find Voltage->Angle mapping (setup test)
+--- Write spherical conversion and variable desnity sampling algorithms
+
+- Galvo Calibration
+--- Design model and calibration pattern (some path) which maps voltages to points on the X=c plane.
+--- Write the algorithm which pairs any point (x, y, z) with a corresponding point on the X=c plane by
+tracing the vector O_2 -> (x, y, z) to the plane.

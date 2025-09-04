@@ -59,8 +59,8 @@ void setup() {
   updateFileSize();
   Serial.print("Initial file size: "); Serial.print(fileSize); Serial.println(" bytes");
 
+  // initTTL();
   initDAC();
-  initTTL();
 }
 
 // ======== LOOP HELPER FUNCTIONS ========
@@ -270,14 +270,14 @@ void loop() {
         timeForBinaryRead = micros() - loopStart - timeForSerialCheck - timeForIfStatement;
 
         // Only toggle laser if state actually changed
-        if (laser_on != on_off_signal) {
-          if (on_off_signal) {
-            toggleLaserOn();
-          } else {
-            toggleLaserOff();
-          }
-          laser_on = on_off_signal;
-        }
+        // if (laser_on != on_off_signal) {
+        //   if (on_off_signal) {
+        //     toggleLaserOn();
+        //   } else {
+        //     toggleLaserOff();
+        //   }
+        //   laser_on = on_off_signal;
+        // }
 
         updateDAC(valA, valB);
 
