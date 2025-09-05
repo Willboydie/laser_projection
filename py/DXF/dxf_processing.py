@@ -1,12 +1,7 @@
 import numpy as np
 import ezdxf
-from collections import defaultdict, deque
-from typing import List, Tuple, Optional
-try:
-	from scipy.spatial import cKDTree as KDTree  # faster if available
-except Exception:  # noqa: S110 broad-except acceptable for optional dep
-	KDTree = None
 import pickle
+from geometry.simplify import join_polylines
 
 # "LINE"          # Straight line segment
 # "CIRCLE"        # Circle defined by center and radius
@@ -51,6 +46,9 @@ def read_dxf_vectors(file_path, eps, msp_=True, psp_=False, blocks_=False):
                     vectors.append(path)
         all_vectors[layer] = vectors
         num_points += len(vectors)
+
+    all_vectors['INTERNAL_WALLS'] = join_polylines(all_vectors['INTERNAL_WALLS'], 1e-2)
+    all_vectors['EXTERNAL_WALLS'] = join_polylines(all_vectors['EXTERNAL_WALLS'], 1e-2)
 
     return all_vectors, num_points
 

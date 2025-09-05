@@ -3,8 +3,6 @@ from typing import List, Tuple, Optional
 from collections import defaultdict, deque
 from scipy.spatial import KDTree
 
-increment = 0.01
-
 
 #=============== TSP ===================
 def _endpoint_2d(p):
@@ -331,11 +329,13 @@ def join_polylines(vectors, tolerance):
     - Quantize points to tolerance grid and snap to canonical average per cell
     - Build endpoint index for O(1) joins
     - Grow polylines from both ends, merging coincident points
+    - Remove collinear points from joined polylines to keep only actual vertices
     - Avoid mutating inputs
 
     vectors: list[list[list[float]]]  # list of polylines, each is list of 3D points
     tolerance: float
     """
+
     if len(vectors) <= 1:
         return vectors
 
@@ -349,7 +349,7 @@ def join_polylines(vectors, tolerance):
     # 1) Gather all points into quantized bins and compute canonical averages
     bins = defaultdict(list)
     for vec in vectors:
-        if not vec:
+        if len(vec) == 0:
             continue
         for p in vec:
             bins[_key(p)].append(p)
@@ -365,7 +365,7 @@ def join_polylines(vectors, tolerance):
     # 2) Snap all points to their canonical representative and drop duplicates
     snapped_vectors = []
     for vec in vectors:
-        if not vec:
+        if len(vec) == 0:
             snapped_vectors.append([])
             continue
         snapped = []
@@ -384,7 +384,7 @@ def join_polylines(vectors, tolerance):
     # endpoint_side: 0 for start, 1 for end
     endpoint_index = defaultdict(set)
     for idx, vec in enumerate(snapped_vectors):
-        if not vec:
+        if len(vec) == 0:
             continue
         start_key = _key(vec[0])
         end_key = _key(vec[-1])
@@ -396,7 +396,7 @@ def join_polylines(vectors, tolerance):
 
     def _remove_endpoint(idx, side):
         vec = snapped_vectors[idx]
-        if not vec:
+        if len(vec) == 0:
             return
         key = _key(vec[0] if side == 0 else vec[-1])
         s = endpoint_index.get(key)
@@ -462,8 +462,45 @@ def join_polylines(vectors, tolerance):
         if len(cur) >= 2 and _key(cur[0]) == _key(cur[-1]):
             cur.pop()
 
-        polylines.append(list(cur))
+        polylines.append(np.array(cur))
 
-    return polylines
+    # 4) Remove collinear points from the joined polylines
+    def _are_collinear(p1, p2, p3, tolerance=1e-6):
+        """Check if three points are collinear using cross product."""
+        if len(p1) < 2 or len(p2) < 2 or len(p3) < 2:
+            return False
+        
+        # Convert to 3D points
+        pt1 = np.array([p1[0], p1[1], p1[2] if len(p1) > 2 else 0.0])
+        pt2 = np.array([p2[0], p2[1], p2[2] if len(p2) > 2 else 0.0])
+        pt3 = np.array([p3[0], p3[1], p3[2] if len(p3) > 2 else 0.0])
+        
+        # Vectors from p1 to p2 and p2 to p3
+        v1 = pt2 - pt1
+        v2 = pt3 - pt2
+        
+        # Cross product magnitude
+        cross = np.linalg.norm(np.cross(v1, v2))
+        return cross < tolerance
+
+    cleaned_polylines = []
+    for polyline in polylines:
+        if len(polyline) < 3:
+            cleaned_polylines.append(polyline)
+            continue
+        
+        # Convert to list for easier manipulation
+        points = polyline.tolist()
+        cleaned = [points[0]]  # Always keep first point
+        
+        for i in range(1, len(points) - 1):
+            # Check if current point is collinear with previous and next
+            if not _are_collinear(points[i-1], points[i], points[i+1], tol):
+                cleaned.append(points[i])
+        
+        cleaned.append(points[-1])  # Always keep last point
+        cleaned_polylines.append(np.array(cleaned))
+
+    return cleaned_polylines
 
 

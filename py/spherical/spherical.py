@@ -49,9 +49,9 @@ def toWallCoords(cart_path, d_to_wall):
     
     return wall_coords
 
-def convert_to_wall_angles(cart_path, d_to_wall=1.0):
+def convert_to_wall_angles(cart_path, d_to_wall, alpha=1, beta=0.5):
     wall_coords = toWallCoords(cart_path, d_to_wall)
-    # corrected_path = project_onto_outward_curling_sphere(wall_coords)
+    corrected_path = project_onto_outward_curling_sphere(wall_coords)
     
     sph_path = []
     for point in wall_coords:
@@ -59,3 +59,6 @@ def convert_to_wall_angles(cart_path, d_to_wall=1.0):
         theta, phi = toSpherical([x, y, z])
         sph_path.append([theta, -phi, laser_on])  ### I dont know why this is -phi but it works
     return np.array(sph_path)
+
+
+def 

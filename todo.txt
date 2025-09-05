@@ -7,10 +7,12 @@ TO DO:
 --- Deal with unused entities and layers
 
 - Spherical Path Processing
+--- Put together floor plan projection for video.
 --- Find Voltage->Angle mapping (setup test)
---- Write spherical conversion and variable desnity sampling algorithms
+--- Write spherical conversion and variable density sampling algorithms
 
-- Galvo Calibration
+- Projection Distortion Correction
+--- Test Chinese guys' distortion correction method.
 --- Design model and calibration pattern (some path) which maps voltages to points on the X=c plane.
 --- Write the algorithm which pairs any point (x, y, z) with a corresponding point on the X=c plane by
 tracing the vector O_2 -> (x, y, z) to the plane.
