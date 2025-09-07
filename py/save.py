@@ -17,16 +17,15 @@ def toBinCmd(spherical, max_angle, max_range=65535.0):
     theta = np.nan_to_num(theta, nan=0.0, posinf=0.0, neginf=0.0)
     phi = np.nan_to_num(phi, nan=0.0, posinf=0.0, neginf=0.0)
 
-    # Center on 2^15 (32768) with range defined by max_range
     # Scale from [-max_angle, max_angle] to [32768 - max_range/2, 32768 + max_range/2]
-    center = 2**15  # 2^15
-    scale = 2**16 / (2.0 * float(max_angle))
+    center = 2**15  # 32768
+    scale = max_range / (2.0 * float(max_angle))  # Correct scale calculation
     theta_scaled = center + (theta * scale)
     phi_scaled = center + (phi * scale)
     
-    # Clamp to valid uint16 range and cast
-    theta_scaled = np.clip(theta_scaled, 0.25*2**16, 0.75*2**16).astype(np.uint16)
-    phi_scaled = np.clip(phi_scaled, 0.25*2**16, 0.75*2**16).astype(np.uint16)
+    # Clamp to the actual desired range
+    theta_scaled = np.clip(theta_scaled, center - max_range/2, center + max_range/2).astype(np.uint16)
+    phi_scaled = np.clip(phi_scaled, center - max_range/2, center + max_range/2).astype(np.uint16)
 
     # Laser flag to uint8 0/1
     laser_u8 = (laser_on != 0).astype(np.uint8)
@@ -39,9 +38,9 @@ def toBinCmd(spherical, max_angle, max_range=65535.0):
     rec['laser'] = laser_u8
     return rec.tobytes(), theta_scaled, phi_scaled, laser_u8
 
-def createBinFile(spherical_data, max_angle, max_range=65535.0):
+def createBinFile(spherical_data, max_angle, max_range):
     cmd, theta_scaled, phi_scaled, laser_u8 = toBinCmd(spherical_data, max_angle, max_range=max_range)
-    with open('data/path.bin', 'wb') as f:
+    with open('../data/projections/path.bin', 'wb') as f:
         f.write(cmd)
     print("Data saved to data/path.bin")
     return cmd, theta_scaled, phi_scaled, laser_u8

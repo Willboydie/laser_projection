@@ -6,7 +6,7 @@ def plot_path(path):
 
     if isinstance(path, list):
         for subpath in path:
-            ax.plot(subpath[:, 0], subpath[:, 1], 'k-')
+            ax.plot(subpath[:, 0], subpath[:, 1], 'ko', ms=1)
     else:
         ax.plot(path[:, 0], path[:, 1], 'kx', ms=2)
         ax.plot(path[:, 0], path[:, 1], 'r-')
