@@ -11,7 +11,9 @@ from geometry.simplify import join_polylines
 # "LWPOLYLINE"    # Polyline defined by vertices and bulge values
 
 
-def save_dxf(vectors, selected_layers):
+def save_dxf(vectors, selected_layers):#, eps=0.01, msp_=True, psp_=False, blocks_=False):
+
+    # vectors, num_points = read_dxf_vectors(file_path, eps, msp_, psp_, blocks_)
     layer_path = [vectors[layer] for layer in selected_layers]
 
     with open(f"../../data/dxf/temp.pkl", "wb") as f:

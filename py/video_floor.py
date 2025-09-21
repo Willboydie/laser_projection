@@ -2,20 +2,20 @@ import pickle
 import numpy as np
 import visualise.vis as vis
 
-# start_index = 4
-# end_index = 36
+start_index = 4
+end_index = 36
 
-# mid1_index = 8
-# mid2_index = 17
+mid1_index = 8
+mid2_index = 17
 
-# with open('../data/dxf/temp.pkl', 'rb') as f:
-#     all_paths = pickle.load(f)
+with open('../data/dxf/temp.pkl', 'rb') as f:
+    all_paths = pickle.load(f)
 
-# video_path_unedited = np.array(all_paths[0][17])
-# video_path_edited = np.array(list(video_path_unedited[start_index:mid1_index]) + list(video_path_unedited[mid1_index+1:mid2_index]) + list(video_path_unedited[mid2_index+1:end_index]) + [video_path_unedited[start_index]]) - np.array([2.64098e5, 6.95141e5, 0.0])
+video_path_unedited = np.array(all_paths[0][17])
+video_path_edited = np.array(list(video_path_unedited[start_index:mid1_index]) + list(video_path_unedited[mid1_index+1:mid2_index]) + list(video_path_unedited[mid2_index+1:end_index]) + [video_path_unedited[start_index]]) - np.array([2.64098e5, 6.95141e5, 0.0])
 
-# with open('../data/dxf/video_path.pkl', 'wb') as f:
-#     pickle.dump(video_path_edited, f)
+with open('../data/dxf/video_path.pkl', 'wb') as f:
+    pickle.dump(video_path_edited, f)
 
 
 with open('../data/dxf/video_path.pkl', 'rb') as f:
@@ -24,7 +24,7 @@ with open('../data/dxf/video_path.pkl', 'rb') as f:
 print(video_path.shape)
 # vis.plot_path(video_path)
 
-c=3
+c=12
 x = np.array(np.ones(len(video_path)) * c)
 y = video_path[:, 0]
 z = video_path[:, 1]
@@ -40,9 +40,11 @@ def cartesian_to_spherical(x, y, z):
 
 def spherical_to_cartesian(r, theta, phi):
     """Convert spherical coordinates to Cartesian coordinates"""
-    x = r * np.cos(theta) * np.cos(phi)
-    y = r * np.sin(theta) * np.cos(phi)
-    z = r * np.sin(phi)
+    # Since cartesian_to_spherical now returns -phi, we need to negate it back
+    phi_original = phi
+    x = r * np.cos(theta) * np.cos(phi_original)
+    y = r * np.sin(theta) * np.cos(phi_original)
+    z = r * np.sin(phi_original)
     return x, y, z
 
 def angular_distance_squared(theta1, phi1, theta2, phi2):
@@ -78,7 +80,7 @@ def partition_line_spherical_gradient(cart_p1, cart_p2, minimum_increment, alpha
         alpha: Gradient parameter controlling how increment increases with distance
     
     Returns:
-        List of Cartesian points representing the partitioned line
+        List of spherical points representing the partitioned line [theta, phi, r]
     """
     x1, y1, z1 = cart_p1
     x2, y2, z2 = cart_p2
@@ -99,7 +101,7 @@ def partition_line_spherical_gradient(cart_p1, cart_p2, minimum_increment, alpha
     
     # Generate points with gradient-based increments
     points = []
-    points.append([y1, z1, x1])  # Add first vertex
+    points.append([theta1, phi1, r1])  # Add first vertex in spherical coordinates
     
     # Start from the first vertex and step along the line
     current_theta = theta1
@@ -142,14 +144,14 @@ def partition_line_spherical_gradient(cart_p1, cart_p2, minimum_increment, alpha
         # Calculate increment based on distance to nearest vertex
         # This creates a V-shape: minimum at vertices, maximum in middle
         distance_to_nearest = min(dist_to_start, dist_to_end)
-        current_increment = minimum_increment + alpha * distance_to_nearest
+        current_increment = minimum_increment + alpha * (distance_to_nearest ** 2)  # Quadratic increase
         
         # Check if we're close enough to the end
         remaining_angular_distance = angular_distance(current_theta, current_phi, theta2, phi2)
         
         if remaining_angular_distance <= current_increment:
             # We're close enough to the end, add the final vertex and break
-            points.append([y2, z2, x2])
+            points.append([theta2, phi2, r2])  # Add final vertex in spherical coordinates
             break
         
         # Calculate step direction in spherical space
@@ -169,113 +171,19 @@ def partition_line_spherical_gradient(cart_p1, cart_p2, minimum_increment, alpha
         current_theta += step_dtheta
         current_phi += step_dphi
         
-        # Add the current point (already calculated above)
-        points.append([y_current, z_current, x_current])
+        # Add the current point in spherical coordinates
+        points.append([current_theta, current_phi, r_current])
         
         step_count += 1
     
     return np.array(points)
 
-def partition_line_spherical(cart_p1, cart_p2, spherical_increment):
-    """
-    Partition a line segment between two Cartesian points into equal increments in spherical space.
-    The points stay on the line p1p2, with specified angular increment in spherical coordinates.
-    
-    Args:
-        cart_p1: First endpoint (x1, y1, z1)
-        cart_p2: Second endpoint (x2, y2, z2)
-        spherical_increment: Angular increment in radians (e.g., 0.01 for ~0.57 degrees)
-    
-    Returns:
-        List of Cartesian points representing the partitioned line in spherical space
-    """
-    x1, y1, z1 = cart_p1
-    x2, y2, z2 = cart_p2
-    
-    # Convert endpoints to spherical coordinates
-    r1, theta1, phi1 = cartesian_to_spherical(x1, y1, z1)
-    r2, theta2, phi2 = cartesian_to_spherical(x2, y2, z2)
-    
-    # Calculate total angular differences
-    dtheta_total = theta2 - theta1
-    dphi_total = phi2 - phi1
-    
-    # Calculate the number of steps needed based on the larger angular difference
-    # Use the maximum angular difference to determine step count
-    max_angular_diff = max(abs(dtheta_total), abs(dphi_total))
-    num_steps = int(np.ceil(max_angular_diff / spherical_increment))
-    
-    # Ensure we have at least 2 points (start and end)
-    num_steps = max(num_steps, 1)
-    
-    # Calculate actual step sizes
-    dtheta = dtheta_total / num_steps
-    dphi = dphi_total / num_steps
-    
-    # Generate intermediate points
-    points = []
-    for i in range(num_steps + 1):
-        # Interpolate angles
-        theta = theta1 + i * dtheta
-        phi = phi1 + i * dphi
-        
-        # Solve for r such that the point lies on the line p1p2
-        # Line equation: p = p1 + t*(p2-p1), where t ∈ [0,1]
-        # We need to find t such that the spherical coordinates (r, theta, phi)
-        # correspond to a point on this line
-        
-        # Convert spherical coordinates to Cartesian with unknown r
-        x_sph = np.cos(phi) * np.cos(theta)  # x/r
-        y_sph = np.cos(phi) * np.sin(theta)  # y/r  
-        z_sph = np.sin(phi)                  # z/r
-        
-        # Line direction vector
-        dx = x2 - x1
-        dy = y2 - y1
-        dz = z2 - z1
-        
-        # Solve for t in the system:
-        # x1 + t*dx = r*x_sph
-        # y1 + t*dy = r*y_sph
-        # z1 + t*dz = r*z_sph
-        
-        # This gives us: t = (r*x_sph - x1)/dx = (r*y_sph - y1)/dy = (r*z_sph - z1)/dz
-        # Rearranging: r*(x_sph/dx - y_sph/dy) = x1/dx - y1/dy
-        # and: r*(y_sph/dy - z_sph/dz) = y1/dy - z1/dz
-        
-        # Solve the system of equations for r
-        if abs(dx) > 1e-10 and abs(dy) > 1e-10:
-            # Use x and y equations
-            r = (x1/dx - y1/dy) / (x_sph/dx - y_sph/dy)
-        elif abs(dy) > 1e-10 and abs(dz) > 1e-10:
-            # Use y and z equations
-            r = (y1/dy - z1/dz) / (y_sph/dy - z_sph/dz)
-        elif abs(dx) > 1e-10 and abs(dz) > 1e-10:
-            # Use x and z equations
-            r = (x1/dx - z1/dz) / (x_sph/dx - z_sph/dz)
-        else:
-            # Fallback: use simple linear interpolation
-            r = r1 + i * (r2 - r1) / num_steps
-        
-        # Convert back to Cartesian
-        # x, y, z = spherical_to_cartesian(r, theta, phi)
-        # points.append([y, z, x])
-        points.append([theta, phi])
-    
-    return np.array(points)
-
 
 if __name__ == "__main__":
-    # # Debug: Check the first few points
-    # print("First few points from video_path:")
-    # for i in range(min(3, len(video_path))):
-    #     x, y, z = video_path[i]
-    #     r, theta, phi = cartesian_to_spherical(x, y, z)
-    #     print(f"Point {i}: cart=({x:.3f}, {y:.3f}, {z:.3f}) -> sph=({r:.3f}, {theta:.3f}, {phi:.3f})")
     
     # Test gradient-based partitioning
-    minimum_increment = 0.0001  # Minimum increment at vertices
-    alpha = 0.005  # Gradient parameter
+    minimum_increment = 4e-5  # Minimum increment at vertices
+    alpha = 1e-3  # Gradient parameter
     partitioned_path = []
     
     print(f"\nGradient-based partitioning:")
@@ -292,7 +200,7 @@ if __name__ == "__main__":
         total_points += len(partitioned_points)
     print(f"Total points: {total_points}")
 
-    # vis.plot_path(partitioned_path)
+    vis.plot_path(partitioned_path)
 
     with open('../data/dxf/video_path_sph.pkl', 'wb') as f:
         pickle.dump(partitioned_path, f)

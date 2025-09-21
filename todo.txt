@@ -7,7 +7,6 @@ TO DO:
 --- Deal with unused entities and layers
 
 - Spherical Path Processing
---- Put together floor plan projection for video.
 --- Find Voltage->Angle mapping (setup test)
 --- Write spherical conversion and variable density sampling algorithms
 

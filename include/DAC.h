@@ -1,17 +1,20 @@
-#include <SPI.h>
 #include <Arduino.h>
 
 #define SYNC 10
 #define LDAC 9
 #define CLR  8
 
+void fastSPITransfer(uint8_t data) {
+  LPSPI1_TDR = data;
+  while (!(LPSPI1_SR & LPSPI1_SR_TDF)) {}
+}
 
 void sendSPICommand(uint8_t cmd, uint16_t data) {
-  digitalWriteFast(SYNC, LOW);
-  SPI.transfer(cmd);
-  SPI.transfer(highByte(data));
-  SPI.transfer(lowByte(data));
-  digitalWriteFast(SYNC, HIGH);
+  GPIO2_DR_CLEAR = (1 << 20); // Set bit 20 of GPIO2 to 0 (LOW) (sets pin 10 to LOW)
+  fastSPITransfer(cmd);
+  fastSPITransfer(highByte(data));
+  fastSPITransfer(lowByte(data));
+  GPIO2_DR_SET = (1 << 20); // Set bit 20 of GPIO2 to 1 (HIGH) (sets pin 10 to HIGH)
 }
 
 void initDAC() {
@@ -25,7 +28,7 @@ void initDAC() {
 
     // Start SPI (MODE0!)
     SPI.begin();
-    SPI.beginTransaction(SPISettings(50000000, MSBFIRST, SPI_MODE0));
+    SPI.beginTransaction(SPISettings(100000000, MSBFIRST, SPI_MODE0));
     Serial.println("SPI initialized");
 
     // Power down DAC A and B
@@ -48,13 +51,26 @@ void initDAC() {
     Serial.println("Internal reference enabled");
 
     sendSPICommand(0b00011111, (int)65535/2.0); // Set Dac A+B to 0V
-    delay(1000); // Wait for DAC to settle
+    delay(100); // Wait for DAC to settle
 }
 
 
-void updateDAC(uint16_t A, uint16_t B) {
-    // Send the command to the DAC
-    sendSPICommand(0b00000000, A); // Write DAC A
-    sendSPICommand(0b00000001, B); // Write DAC B
-    sendSPICommand(0b00001111, 0b0000000000000000); // Update Dac A+B
-}
+
+// Ultra-fast DAC update macro for 1MHz performance
+// This eliminates all function call overhead
+#define FAST_DAC_UPDATE(A, B) do { \
+    GPIO2_DR_CLEAR = (1 << 20); /* SYNC LOW */ \
+    LPSPI1_TDR = 0b00011000; /* DAC A command */ \
+    while (!(LPSPI1_SR & LPSPI1_SR_TDF)) {} \
+    LPSPI1_TDR = highByte(A); \
+    while (!(LPSPI1_SR & LPSPI1_SR_TDF)) {} \
+    LPSPI1_TDR = lowByte(A); \
+    while (!(LPSPI1_SR & LPSPI1_SR_TDF)) {} \
+    LPSPI1_TDR = 0b00011001; /* DAC B command */ \
+    while (!(LPSPI1_SR & LPSPI1_SR_TDF)) {} \
+    LPSPI1_TDR = highByte(B); \
+    while (!(LPSPI1_SR & LPSPI1_SR_TDF)) {} \
+    LPSPI1_TDR = lowByte(B); \
+    while (!(LPSPI1_SR & LPSPI1_SR_TDF)) {} \
+    GPIO2_DR_SET = (1 << 20); /* SYNC HIGH */ \
+} while(0)

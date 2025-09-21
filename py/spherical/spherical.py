@@ -59,6 +59,3 @@ def convert_to_wall_angles(cart_path, d_to_wall, alpha=1, beta=0.5):
         theta, phi = toSpherical([x, y, z])
         sph_path.append([theta, -phi, laser_on])  ### I dont know why this is -phi but it works
     return np.array(sph_path)
-
-
-def 

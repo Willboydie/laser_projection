@@ -7,7 +7,7 @@ import os
 
 # Configuration
 SERIAL_PORT = 'COM4'  # Change to your Teensy's port
-BAUD_RATE = 115200
+BAUD_RATE = 1152000
 
 # Command Definitions (8-bit) - must match main.cpp
 WRITE_CMD   = 0b00000001
@@ -243,7 +243,7 @@ class GalvoController:
 
     def browse_file(self):
         """Open file dialog to select .bin file"""
-        data_dir = os.path.join(os.getcwd(), "data")
+        data_dir = os.path.join("../data/projections")
         
         # Check if data directory exists
         if not os.path.exists(data_dir):
@@ -299,7 +299,7 @@ class GalvoController:
                              self.master.update_idletasks()
                              
                              # Small delay to prevent overwhelming the serial buffer
-                             time.sleep(0.001)
+                             time.sleep(0.0001)
                          except Exception as e:
                              self.log_message(f"Error sending packet: {e}")
                              raise

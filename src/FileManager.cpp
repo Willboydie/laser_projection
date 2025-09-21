@@ -1,0 +1,149 @@
+#include "FileManager.h"
+
+bool FileManager::initialize() {
+    // Initialize SD card
+    if (!SD.begin(BUILTIN_SDCARD)) {
+        Serial.println("SD ERROR: Initialization failed!");
+        return false;
+    }
+    Serial.println("SD initialized.");
+    
+    // Get initial file size
+    updateFileSize();
+    Serial.print("Initial file size: ");
+    Serial.print(fileSize);
+    Serial.println(" bytes");
+    
+    return true;
+}
+
+bool FileManager::updateFileSize() {
+    File tempFile = SD.open(DATA_FILENAME, FILE_READ);
+    if (tempFile) {
+        fileSize = tempFile.size();
+        tempFile.close();
+        return true;
+    } else {
+        Serial.println("SD ERROR: Failed to open data.bin!");
+        fileSize = 0;
+        return false;
+    }
+}
+
+bool FileManager::openForWrite() {
+    if (writeFileOpen) {
+        writeFile.close();
+    }
+    
+    writeFile = SD.open(DATA_FILENAME, FILE_WRITE);
+    if (writeFile) {
+        writeFileOpen = true;
+        bytesWritten = 0;
+        return true;
+    } else {
+        Serial.println("SD ERROR: Failed to open for write!");
+        return false;
+    }
+}
+
+bool FileManager::writeRecord(const uint8_t* data) {
+    if (!writeFileOpen) {
+        Serial.println("SD ERROR: Write file not open!");
+        return false;
+    }
+    
+    size_t written = writeFile.write(data, RECORD_SIZE);
+    writeFile.flush();
+    
+    if (written == RECORD_SIZE) {
+        bytesWritten += RECORD_SIZE;
+        fileSize = bytesWritten; // Update file size as we write
+        return true;
+    } else {
+        Serial.println("SD ERROR: Write failed!");
+        return false;
+    }
+}
+
+bool FileManager::openForRead() {
+    if (playbackFileOpen) {
+        playbackFile.close();
+    }
+    
+    playbackFile = SD.open(DATA_FILENAME, FILE_READ);
+    if (playbackFile) {
+        playbackFileOpen = true;
+        return true;
+    } else {
+        Serial.println("SD ERROR: Failed to open for read!");
+        return false;
+    }
+}
+
+bool FileManager::seekToPosition(uint32_t position) {
+    if (!playbackFileOpen) {
+        Serial.println("SD ERROR: Playback file not open!");
+        return false;
+    }
+    
+    // Only seek if position changed (optimization)
+    if (position != lastSeekPosition) {
+        playbackFile.seek(position);
+        lastSeekPosition = position;
+    }
+    
+    return true;
+}
+
+bool FileManager::prepareForDMARead(uint32_t startPosition, size_t bytesToRead) {
+    if (!playbackFileOpen) {
+        if (!openForRead()) {
+            return false;
+        }
+    }
+    
+    return seekToPosition(startPosition);
+}
+
+bool FileManager::wipeFile() {
+    closeAllFiles();
+    
+    if (SD.remove(DATA_FILENAME)) {
+        fileSize = 0;
+        bytesRead = 0;
+        bytesWritten = 0;
+        lastSeekPosition = 0xFFFFFFFF;
+        Serial.println("SD: File wiped.");
+        return true;
+    } else {
+        Serial.println("SD ERROR: Failed to wipe file!");
+        return false;
+    }
+}
+
+void FileManager::closeAllFiles() {
+    if (playbackFileOpen) {
+        playbackFile.close();
+        playbackFileOpen = false;
+    }
+    if (writeFileOpen) {
+        writeFile.close();
+        writeFileOpen = false;
+    }
+}
+
+float FileManager::getReadProgress() const {
+    return fileSize > 0 ? (float)bytesRead / fileSize : 0.0f;
+}
+
+void FileManager::printStatus() const {
+    Serial.print("File Status - Size: ");
+    Serial.print(fileSize);
+    Serial.print(", Read: ");
+    Serial.print(bytesRead);
+    Serial.print(", Written: ");
+    Serial.print(bytesWritten);
+    Serial.print(", Progress: ");
+    Serial.print(getReadProgress() * 100, 1);
+    Serial.println("%");
+}
