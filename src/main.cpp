@@ -6,13 +6,13 @@
 #include "FileManager.h"
 #include "SystemState.h"
 #include "CommandProcessor.h"
-#include "HighSpeedProjector.h"
+#include "Projector.h"
 
 // ======== GLOBALS ========
 // Global instances with clear ownership
 FileManager fileManager;
 SystemState systemState;
-HighSpeedProjector projector;
+Projector projector;
 CommandProcessor commandProcessor(&fileManager, &systemState, &projector);
 
 // Command processing variables
@@ -45,6 +45,7 @@ void setup() {
 
 // ======== MAIN LOOP ========
 
+static uint32_t startTime = millis();
 void loop() {
   // Check for serial commands (less frequently to reduce overhead)
   if (loopCounter % 1000 == 0) {
@@ -70,12 +71,16 @@ void loop() {
   
   // Debug info (less frequent)
   if (loopCounter % 1000000 == 0 && systemState.isCurrentlyProjecting()) {
-    Serial.print("Loop counter: ");
-    Serial.print(loopCounter);
-    Serial.print(" | Progress: ");
-    Serial.print(projector.getProgress() * 100, 1);
-    Serial.println("%");
+    Serial.print("Frequency: ");
+    Serial.print(1000000 / (millis() - startTime));
+    Serial.println("Hz");
+    Serial.print("Average DMA fill time: ");
+    Serial.print(projector.getDMAFillTime() / projector.getDMACompletionCount());
+    Serial.println("μs");
+    Serial.println();
+    
     loopCounter = 0;
+    startTime = millis();
   }
 }
 

@@ -150,7 +150,7 @@ void CommandProcessor::handleResetCommand() {
     fileManager->closeAllFiles();
     
     // Reset file positions
-    fileManager->setBytesRead(0);
+    fileManager->setCurrentPos(0);
     
     // Reinitialize DAC + Laser
     initDAC();

@@ -24,6 +24,8 @@ public:
     }
     
     Mode getMode() const { return currentMode; }
+
+
     
     // Projection state
     void setProjecting(bool projecting) { 

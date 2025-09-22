@@ -11,10 +11,9 @@ class FileManager;
 // Configuration for 1MHz projection with three-buffer system
 #define BUFFER_SIZE 20000  // 20,000 points = 100KB per buffer
 #define RECORD_SIZE 5
-#define NUM_BUFFERS 3
 
 // Three-buffer circular system
-class HighSpeedProjector {
+class Projector {
 private:
     // Three buffers in DTCM for maximum performance (100KB each)
     __attribute__((aligned(32))) 
@@ -30,20 +29,23 @@ private:
     uint8_t bufferC[BUFFER_SIZE * RECORD_SIZE];
     
     // Buffer management
-    uint8_t* buffers[NUM_BUFFERS] = {bufferA, bufferB, bufferC};
-    uint8_t activeBufferIndex = 0;    // Currently projecting from this buffer
-    uint8_t fillBufferIndex = 1;      // Currently filling this buffer
-    uint8_t readyBufferIndex = 2;     // This buffer is ready to become active
-    
+    uint8_t* activeBuffer = bufferA;    // Currently projecting from this buffer
+    uint8_t* fillBuffer = bufferB;      // Currently filling this buffer  
+    uint8_t* readyBuffer = bufferC;     // This buffer is ready to become active
+    uint8_t* oldActive;
+    uint8_t* oldReady;
+    uint8_t* oldFill;
+    uint8_t fullBuffers = 0;
+
     uint32_t activePos = 0;           // Position within active buffer
     bool buffersInitialized = false;  // All buffers filled on startup
-    bool fillingBuffer = false;       // DMA is currently filling a buffer
+    bool bufferPendiente = false;       // DMA is currently filling a buffer
     
     // DMA for background file operations
     DMAChannel sdReadDMA;
     bool dmaActive = false;
     
-    // Timing
+    // Projection Timing
     uint32_t lastUpdateTime = 0;
     uint32_t currentDelayUs = 0;
     
@@ -52,14 +54,9 @@ private:
     
     // File manager reference
     FileManager* fileManager;
-    
-    // Performance monitoring
-    uint32_t lastDMAStartTime = 0;
-    uint32_t totalDMATransfers = 0;
-    uint32_t totalDMATime = 0;
-    uint32_t lastPerformanceReport = 0;
 
 public:
+
     void init(FileManager* fm) {
         fileManager = fm;
         // Initialize DMA for SD card operations
@@ -68,12 +65,12 @@ public:
         // Initialize buffer state
         activePos = 0;
         buffersInitialized = false;
-        fillingBuffer = false;
+        fullBuffers = 0;
         
         // Initialize performance monitoring
-        totalDMATransfers = 0;
-        totalDMATime = 0;
-        lastPerformanceReport = millis();
+        dmaCompletionCount = 0;
+        dmaFillTime = 0;
+        lastDMAStartTime = 0;
         
         Serial.println("High-speed projector initialized");
     }
@@ -89,14 +86,11 @@ public:
         Serial.println("Initializing three-buffer system...");
         
         // Fill all three buffers sequentially
-        for (int i = 0; i < NUM_BUFFERS; i++) {
-            if (!fillBufferFromFile(buffers[i], i * BUFFER_SIZE * RECORD_SIZE)) {
-                Serial.println("ERROR: Failed to initialize buffers");
-                return false;
-            }
-        }
+        fillBufferDMA();
+        while (fullBuffers < 3);
         
         buffersInitialized = true;
+
         Serial.println("Three-buffer system initialized successfully");
         return true;
     }
@@ -131,7 +125,7 @@ public:
     
     // Buffer filling methods
     bool fillBufferFromFile(uint8_t* buffer, uint32_t filePosition);
-    void fillBuffer();
+    void fillBufferDMA();
     
     // Buffer rotation methods
     void rotateBuffers();
@@ -147,7 +141,6 @@ public:
         
         if (elapsedTime >= currentDelayUs) {
             // Get data from active buffer (optimized memory access)
-            uint8_t* activeBuffer = buffers[activeBufferIndex];
             uint32_t offset = (activePos << 2) + activePos; // *5 without multiplication
             uint16_t valA = (activeBuffer[offset] << 8) | activeBuffer[offset + 1];
             uint16_t valB = (activeBuffer[offset + 2] << 8) | activeBuffer[offset + 3];
@@ -179,10 +172,19 @@ public:
     // Getters for status
     uint32_t getActivePosition() const { return activePos; }
     float getProgress() const;
+    uint32_t getDMAFillTime() const { return dmaFillTime; }
+    uint32_t getDMACompletionCount() const { return dmaCompletionCount; }
+    uint32_t getLastDMAStartTime() const { return lastDMAStartTime; }
+    uint8_t getFullBuffers() const { return fullBuffers; }
+
+    // Setters
+    void setDMAActive(bool active) { dmaActive = active; }
+    void setDMACompletionCount(uint32_t count) { dmaCompletionCount = count; }
+    void setDMAFillTime(uint32_t time) { dmaFillTime = time; }
 };
 
-// Global instance
-extern HighSpeedProjector highSpeedProjector;
+    // Global instance
+    extern Projector projector;
 
 #endif // HIGHSPEEDPROJECTOR_H
 

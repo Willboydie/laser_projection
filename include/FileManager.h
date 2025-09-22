@@ -12,7 +12,7 @@ private:
     
     // File state
     uint32_t fileSize = 0;
-    uint32_t bytesRead = 0;
+    uint32_t currentPos = 0;
     uint32_t bytesWritten = 0;
     bool playbackFileOpen = false;
     bool writeFileOpen = false;
@@ -43,8 +43,8 @@ public:
     bool seekToPosition(uint32_t position);
     File& getPlaybackFile() { return playbackFile; }
     void closePlaybackFile();
-    uint32_t getBytesRead() const { return bytesRead; }
-    void setBytesRead(uint32_t pos) { bytesRead = pos; }
+    uint32_t getCurrentPos() const { return currentPos; }
+    void setCurrentPos(uint32_t pos) { currentPos = pos; }
     
     // File management
     bool wipeFile();
@@ -56,7 +56,6 @@ public:
     bool prepareForDMARead(uint32_t startPosition, size_t bytesToRead);
     
     // Status
-    float getReadProgress() const;
     void printStatus() const;
 };
 
