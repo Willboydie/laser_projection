@@ -1,7 +1,12 @@
 #include "CommandProcessor.h"
-#include <DAC.h>
+#include "DAC.h"
+#include "Projector.h"
+#include "TTL.h"
+#include "FileManager.h"
+#include "SystemState.h"
 
-CommandProcessor::CommandProcessor(FileManager* fm, SystemState* ss, HighSpeedProjector* proj) 
+
+CommandProcessor::CommandProcessor(FileManager* fm, SystemState* ss, Projector* proj) 
     : fileManager(fm), systemState(ss), projector(proj) {
     // Constructor - just store pointers
 }

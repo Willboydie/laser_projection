@@ -22,7 +22,6 @@ private:
     
     // Constants
     static constexpr const char* DATA_FILENAME = "data.bin";
-    static constexpr size_t RECORD_SIZE = 5;
     
 public:
     // Initialization

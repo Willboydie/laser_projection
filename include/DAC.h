@@ -1,4 +1,8 @@
+#ifndef DAC_H
+#define DAC_H
+
 #include <Arduino.h>
+#include <SPI.h>
 
 #define SYNC 10
 #define LDAC 9
@@ -6,7 +10,7 @@
 
 void fastSPITransfer(uint8_t data) {
   LPSPI1_TDR = data;
-  while (!(LPSPI1_SR & LPSPI1_SR_TDF)) {}
+  while (!(LPSPI1_SR & LPSPI_SR_TDF)) {}
 }
 
 void sendSPICommand(uint8_t cmd, uint16_t data) {
@@ -61,16 +65,18 @@ void initDAC() {
 #define FAST_DAC_UPDATE(A, B) do { \
     GPIO2_DR_CLEAR = (1 << 20); /* SYNC LOW */ \
     LPSPI1_TDR = 0b00011000; /* DAC A command */ \
-    while (!(LPSPI1_SR & LPSPI1_SR_TDF)) {} \
+    while (!(LPSPI1_SR & LPSPI_SR_TDF)) {} \
     LPSPI1_TDR = highByte(A); \
-    while (!(LPSPI1_SR & LPSPI1_SR_TDF)) {} \
+    while (!(LPSPI1_SR & LPSPI_SR_TDF)) {} \
     LPSPI1_TDR = lowByte(A); \
-    while (!(LPSPI1_SR & LPSPI1_SR_TDF)) {} \
+    while (!(LPSPI1_SR & LPSPI_SR_TDF)) {} \
     LPSPI1_TDR = 0b00011001; /* DAC B command */ \
-    while (!(LPSPI1_SR & LPSPI1_SR_TDF)) {} \
+    while (!(LPSPI1_SR & LPSPI_SR_TDF)) {} \
     LPSPI1_TDR = highByte(B); \
-    while (!(LPSPI1_SR & LPSPI1_SR_TDF)) {} \
+    while (!(LPSPI1_SR & LPSPI_SR_TDF)) {} \
     LPSPI1_TDR = lowByte(B); \
-    while (!(LPSPI1_SR & LPSPI1_SR_TDF)) {} \
+    while (!(LPSPI1_SR & LPSPI_SR_TDF)) {} \
     GPIO2_DR_SET = (1 << 20); /* SYNC HIGH */ \
 } while(0)
+
+#endif

@@ -74,8 +74,10 @@ void loop() {
     Serial.print(1000000 / (millis() - startTime));
     Serial.println("Hz");
     Serial.print("Average DMA fill time: ");
-    Serial.print(projector.getDMACompletionCount() > 0 ? projector.getDMAFillTime() / projector.getDMACompletionCount() : "None Completed");
-    Serial.println("μs");
+    Serial.print(projector.getDMACompletionCount() > 0 ? 
+        String(projector.getDMAFillTime() / projector.getDMACompletionCount()) : 
+        "None Completed");
+    Serial.println("(μs)");
     Serial.println();
     
     loopCounter = 0;

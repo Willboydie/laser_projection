@@ -9,7 +9,7 @@ extern Projector projector;
 void Projector::setupDMA() {
     // Configure DMA for SD card reading
     // Initialize with valid source buffer (will be reconfigured in startBufferFill)
-    sdReadDMA.sourceBuffer((volatile void*)&IMXRT_SDHC1->DS_DATA, 1); // Use DS_DATA, not DS_ADDR
+    sdReadDMA.sourceBuffer((volatile void*)&IMXRT_USDHC1->DS_DATA, 1); // Use DS_DATA, not DS_ADDR
     sdReadDMA.destination(fillBuffer);
     sdReadDMA.triggerAtHardwareEvent(DMAMUX_SOURCE_SDHC);
     
@@ -52,7 +52,7 @@ void Projector::fillBufferDMA() {
         fullBuffers++;
     }
 
-    sdReadDMA.sourceBuffer((volatile void*)&IMXRT_SDHC1->DS_DATA, bytesToRead);
+    sdReadDMA.sourceBuffer((volatile void*)&IMXRT_USDHC1->DS_DATA, bytesToRead);
     sdReadDMA.destination(fillBuffer);
 
     fileManager->setCurrentPos((currentPos + bytesToRead) % fileSize);

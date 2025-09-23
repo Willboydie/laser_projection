@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include "FileManager.h"
 #include "SystemState.h"
-#include "HighSpeedProjector.h"
+#include "Projector.h"
 
 // Command definitions
 #define WRITE_CMD    0b00000001
@@ -20,10 +20,10 @@ class CommandProcessor {
 private:
     FileManager* fileManager;
     SystemState* systemState;
-    HighSpeedProjector* projector;
+    Projector* projector;
     
 public:
-    CommandProcessor(FileManager* fm, SystemState* ss, HighSpeedProjector* proj);
+    CommandProcessor(FileManager* fm, SystemState* ss, Projector* proj);
     void processCommand(uint8_t cmd, uint8_t payload[RECORD_SIZE]);
     
 private:

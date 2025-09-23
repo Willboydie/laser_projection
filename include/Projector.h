@@ -4,6 +4,9 @@
 #include <Arduino.h>
 #include <DMAChannel.h>
 #include "DAC.h"
+#include "SystemState.h"
+#include "FileManager.h"
+#include "TTL.h"
 
 // Forward declaration
 class FileManager;
