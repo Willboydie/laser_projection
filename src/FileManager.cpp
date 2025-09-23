@@ -110,7 +110,7 @@ bool FileManager::wipeFile() {
     
     if (SD.remove(DATA_FILENAME)) {
         fileSize = 0;
-        bytesRead = 0;
+        currentPos = 0;
         bytesWritten = 0;
         lastSeekPosition = 0xFFFFFFFF;
         Serial.println("SD: File wiped.");
@@ -132,18 +132,11 @@ void FileManager::closeAllFiles() {
     }
 }
 
-float FileManager::getReadProgress() const {
-    return fileSize > 0 ? (float)bytesRead / fileSize : 0.0f;
-}
-
 void FileManager::printStatus() const {
     Serial.print("File Status - Size: ");
     Serial.print(fileSize);
     Serial.print(", Read: ");
-    Serial.print(bytesRead);
+    Serial.print(currentPos);
     Serial.print(", Written: ");
-    Serial.print(bytesWritten);
-    Serial.print(", Progress: ");
-    Serial.print(getReadProgress() * 100, 1);
-    Serial.println("%");
+    Serial.println(bytesWritten);
 }

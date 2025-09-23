@@ -1,5 +1,10 @@
 TO DO:
 
+- Projector Speed Boost
+--- Fix delay code.
+--- Fix buffer rotation timing and DMA wait for projection.
+--- Fix update function to not contain swapBuffers().
+
 - DXF
 --- Remove [2.641e5, 6.9514e5, 0.0]
 --- Deal with elevation

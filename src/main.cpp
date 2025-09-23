@@ -9,7 +9,6 @@
 #include "Projector.h"
 
 // ======== GLOBALS ========
-// Global instances with clear ownership
 FileManager fileManager;
 SystemState systemState;
 Projector projector;
@@ -37,7 +36,7 @@ void setup() {
   }
   
   // Initialize projector with file manager reference
-  projector.init(&fileManager);
+  projector.init(&fileManager, &systemState);
   
   Serial.println("System initialized successfully");
   systemState.printStatus();
@@ -63,19 +62,19 @@ void loop() {
   }
   
   // Update projector if in project mode
-  if (!(systemState.getMode() == SystemState::MODE_PROJECT) || !systemState.isCurrentlyProjecting()) {
+  if ((systemState.getMode() == SystemState::MODE_PROJECT) && systemState.isCurrentlyProjecting()) {
     projector.update();
   }
   
   loopCounter++;
   
   // Debug info (less frequent)
-  if (loopCounter % 1000000 == 0 && systemState.isCurrentlyProjecting()) {
+  if ((loopCounter % 1000000 == 0) && (systemState.isCurrentlyProjecting())) {
     Serial.print("Frequency: ");
     Serial.print(1000000 / (millis() - startTime));
     Serial.println("Hz");
     Serial.print("Average DMA fill time: ");
-    Serial.print(projector.getDMAFillTime() / projector.getDMACompletionCount());
+    Serial.print(projector.getDMACompletionCount() > 0 ? projector.getDMAFillTime() / projector.getDMACompletionCount() : "None Completed");
     Serial.println("μs");
     Serial.println();
     

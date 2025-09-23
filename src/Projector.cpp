@@ -1,5 +1,6 @@
 #include "Projector.h"
 #include "FileManager.h"
+#include "SystemState.h"
 
 // Global instance
 extern Projector projector;
@@ -21,7 +22,7 @@ void Projector::setupDMA() {
 // DMA completion interrupt handler
 void dmaCompleteISR() {
     // Mark DMA as complete
-    if (projector.getFullBuffers() > 2) {
+    if (projector.getFullBuffers() >= 3) {
         projector.setDMAActive(false);
     } else {
         projector.fillBufferDMA();
@@ -84,4 +85,27 @@ void Projector::rotateBuffers() {
     
     // Start filling the new fill buffer
     fillBufferDMA();
+}
+
+
+bool Projector::initializeBuffers() {
+    if (!fileManager || !fileManager->isPlaybackFileOpen()) {
+        Serial.println("ERROR: File manager not available or file not open");
+        return false;
+    }
+    
+    Serial.println("Initializing three-buffer system...");
+    
+    // Fill all three buffers sequentially
+    fillBufferDMA();
+    while (fullBuffers < 3) {
+        delayMicroseconds(100);
+        Serial.print("Waiting for buffers to fill: ");
+        Serial.println(fullBuffers);
+    }
+    
+    buffersInitialized = true;
+
+    Serial.println("Three-buffer system initialized successfully");
+    return true;
 }

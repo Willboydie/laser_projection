@@ -35,14 +35,12 @@ public:
     // Write operations
     bool openForWrite();
     bool writeRecord(const uint8_t* data);
-    void closeWriteFile();
     uint32_t getBytesWritten() const { return bytesWritten; }
     
     // Read operations
     bool openForRead();
     bool seekToPosition(uint32_t position);
     File& getPlaybackFile() { return playbackFile; }
-    void closePlaybackFile();
     uint32_t getCurrentPos() const { return currentPos; }
     void setCurrentPos(uint32_t pos) { currentPos = pos; }
     

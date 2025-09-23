@@ -7,6 +7,7 @@
 
 // Forward declaration
 class FileManager;
+class SystemState;
 
 // Configuration for 1MHz projection with three-buffer system
 #define BUFFER_SIZE 20000  // 20,000 points = 100KB per buffer
@@ -39,11 +40,13 @@ private:
 
     uint32_t activePos = 0;           // Position within active buffer
     bool buffersInitialized = false;  // All buffers filled on startup
-    bool bufferPendiente = false;       // DMA is currently filling a buffer
     
     // DMA for background file operations
     DMAChannel sdReadDMA;
     bool dmaActive = false;
+    uint32_t dmaCompletionCount = 0;
+    uint32_t dmaFillTime = 0;
+    uint32_t lastDMAStartTime = 0;
     
     // Projection Timing
     uint32_t lastUpdateTime = 0;
@@ -54,11 +57,13 @@ private:
     
     // File manager reference
     FileManager* fileManager;
+    SystemState* systemState;
 
 public:
 
-    void init(FileManager* fm) {
+    void init(FileManager* fm, SystemState* ss) {
         fileManager = fm;
+        systemState = ss;
         // Initialize DMA for SD card operations
         setupDMA();
         
@@ -77,23 +82,7 @@ public:
     
     void setupDMA();
     
-    bool initializeBuffers() {
-        if (!fileManager || !fileManager->isPlaybackFileOpen()) {
-            Serial.println("ERROR: File manager not available or file not open");
-            return false;
-        }
-        
-        Serial.println("Initializing three-buffer system...");
-        
-        // Fill all three buffers sequentially
-        fillBufferDMA();
-        while (fullBuffers < 3);
-        
-        buffersInitialized = true;
-
-        Serial.println("Three-buffer system initialized successfully");
-        return true;
-    }
+    bool initializeBuffers();
     
     bool startProjection(uint32_t delayUs) {
         if (!buffersInitialized) {
@@ -102,7 +91,7 @@ public:
         }
         
         currentDelayUs = delayUs;
-        isProjecting = true;
+        systemState->setProjecting(true);
         
         Serial.print("Projection started: ");
         Serial.print(fileManager->getFileSize() / RECORD_SIZE);
@@ -111,7 +100,7 @@ public:
     }
     
     void stopProjection() {
-        isProjecting = false;
+        systemState->setProjecting(false);
         Serial.println("Projection stopped");
     }
     
@@ -119,7 +108,7 @@ public:
         if (!fileManager || !fileManager->isPlaybackFileOpen()) {
             return false;
         }
-        isProjecting = true;
+        systemState->setProjecting(true);
         return true;
     }
     
@@ -132,7 +121,7 @@ public:
     
     // Main projection loop - optimized for 1MHz
     void update() {
-        if (!isProjecting || !buffersInitialized) return;
+        if (!systemState->isCurrentlyProjecting() || !buffersInitialized) return;
         
         uint32_t currentTime = micros();
         uint32_t elapsedTime = (currentTime >= lastUpdateTime) ? 
@@ -171,7 +160,6 @@ public:
     
     // Getters for status
     uint32_t getActivePosition() const { return activePos; }
-    float getProgress() const;
     uint32_t getDMAFillTime() const { return dmaFillTime; }
     uint32_t getDMACompletionCount() const { return dmaCompletionCount; }
     uint32_t getLastDMAStartTime() const { return lastDMAStartTime; }
