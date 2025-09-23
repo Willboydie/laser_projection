@@ -5,6 +5,7 @@
 #include "FileManager.h"
 #include "SystemState.h"
 #include "Projector.h"
+#include "Constants.h"
 
 // Command definitions
 #define WRITE_CMD    0b00000001
@@ -13,8 +14,6 @@
 #define PLAY_CMD     0b00001001
 #define PAUSE_CMD    0b00001010
 #define RESET_CMD    0b00001111
-
-#define RECORD_SIZE 5
 
 class CommandProcessor {
 private:

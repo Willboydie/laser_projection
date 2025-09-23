@@ -2,34 +2,30 @@
 #define HIGHSPEEDPROJECTOR_H
 
 #include <Arduino.h>
-#include <DMAChannel.h>
 #include "DAC.h"
 #include "SystemState.h"
 #include "FileManager.h"
 #include "TTL.h"
+#include "Constants.h"
 
 // Forward declaration
 class FileManager;
 class SystemState;
 
-// Configuration for 1MHz projection with three-buffer system
-#define BUFFER_SIZE 20000  // 20,000 points = 100KB per buffer
-#define RECORD_SIZE 5
-
 // Three-buffer circular system
 class Projector {
 private:
-    // Three buffers in DTCM for maximum performance (100KB each)
-    __attribute__((aligned(32))) 
-    __attribute__((section(".dtcm")))
+    // Three buffers aligned to 4 bytes (as required by SdFat)
+    __attribute__((aligned(4))) 
+    // __attribute__((section(".dtcm")))
     uint8_t bufferA[BUFFER_SIZE * RECORD_SIZE];
     
-    __attribute__((aligned(32))) 
-    __attribute__((section(".dtcm")))
+    __attribute__((aligned(4))) 
+    // __attribute__((section(".dtcm")))
     uint8_t bufferB[BUFFER_SIZE * RECORD_SIZE];
     
-    __attribute__((aligned(32))) 
-    __attribute__((section(".dtcm")))
+    __attribute__((aligned(4))) 
+    // __attribute__((section(".dtcm")))   
     uint8_t bufferC[BUFFER_SIZE * RECORD_SIZE];
     
     // Buffer management
@@ -44,8 +40,7 @@ private:
     uint32_t activePos = 0;           // Position within active buffer
     bool buffersInitialized = false;  // All buffers filled on startup
     
-    // DMA for background file operations
-    DMAChannel sdReadDMA;
+    // File reading state (SdFat handles DMA internally)
     bool dmaActive = false;
     uint32_t dmaCompletionCount = 0;
     uint32_t dmaFillTime = 0;
@@ -67,8 +62,7 @@ public:
     void init(FileManager* fm, SystemState* ss) {
         fileManager = fm;
         systemState = ss;
-        // Initialize DMA for SD card operations
-        setupDMA();
+        // SdFat handles DMA initialization internally
         
         // Initialize buffer state
         activePos = 0;
@@ -80,10 +74,8 @@ public:
         dmaFillTime = 0;
         lastDMAStartTime = 0;
         
-        Serial.println("High-speed projector initialized");
+        Serial.println("High-speed projector initialized with SdFat");
     }
-    
-    void setupDMA();
     
     bool initializeBuffers();
     

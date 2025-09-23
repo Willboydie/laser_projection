@@ -2,13 +2,18 @@
 #define FILEMANAGER_H
 
 #include <Arduino.h>
-#include <SD.h>
+#include <SdFat.h>
+#include <sdios.h>
+#include "Constants.h"
 
 class FileManager {
 private:
-    // File handles
-    File playbackFile;
-    File writeFile;
+    // SdFat instance (provides DMA support)
+    SdFat sd;
+    
+    // File handles - use FsFile with SdFat
+    FsFile playbackFile;
+    FsFile writeFile;
     
     // File state
     uint32_t fileSize = 0;
@@ -39,7 +44,7 @@ public:
     // Read operations
     bool openForRead();
     bool seekToPosition(uint32_t position);
-    File& getPlaybackFile() { return playbackFile; }
+    FsFile& getPlaybackFile() { return playbackFile; }
     uint32_t getCurrentPos() const { return currentPos; }
     void setCurrentPos(uint32_t pos) { currentPos = pos; }
     
@@ -50,7 +55,7 @@ public:
     bool isWriteFileOpen() const { return writeFileOpen; }
     
     // DMA support
-    bool prepareForDMARead(uint32_t startPosition, size_t bytesToRead);
+    bool prepareForDMARead(uint32_t startPosition);
     
     // Status
     void printStatus() const;

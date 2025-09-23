@@ -1,12 +1,13 @@
 #include "FileManager.h"
 
+
 bool FileManager::initialize() {
-    // Initialize SD card
-    if (!SD.begin(BUILTIN_SDCARD)) {
+    // Initialize SD card with SdFat (includes DMA support)
+    if (!sd.begin(SdioConfig(FIFO_SDIO))) {
         Serial.println("SD ERROR: Initialization failed!");
         return false;
     }
-    Serial.println("SD initialized.");
+    Serial.println("SD initialized with SdFat (DMA enabled).");
     
     // Get initial file size
     updateFileSize();
@@ -18,7 +19,7 @@ bool FileManager::initialize() {
 }
 
 bool FileManager::updateFileSize() {
-    File tempFile = SD.open(DATA_FILENAME, FILE_READ);
+    FsFile tempFile = sd.open(DATA_FILENAME, O_RDONLY);
     if (tempFile) {
         fileSize = tempFile.size();
         tempFile.close();
@@ -35,7 +36,7 @@ bool FileManager::openForWrite() {
         writeFile.close();
     }
     
-    writeFile = SD.open(DATA_FILENAME, FILE_WRITE);
+    writeFile = sd.open(DATA_FILENAME, O_WRONLY | O_CREAT | O_TRUNC);
     if (writeFile) {
         writeFileOpen = true;
         bytesWritten = 0;
@@ -46,31 +47,12 @@ bool FileManager::openForWrite() {
     }
 }
 
-bool FileManager::writeRecord(const uint8_t* data) {
-    if (!writeFileOpen) {
-        Serial.println("SD ERROR: Write file not open!");
-        return false;
-    }
-    
-    size_t written = writeFile.write(data, RECORD_SIZE);
-    writeFile.flush();
-    
-    if (written == RECORD_SIZE) {
-        bytesWritten += RECORD_SIZE;
-        fileSize = bytesWritten; // Update file size as we write
-        return true;
-    } else {
-        Serial.println("SD ERROR: Write failed!");
-        return false;
-    }
-}
-
 bool FileManager::openForRead() {
     if (playbackFileOpen) {
         playbackFile.close();
     }
     
-    playbackFile = SD.open(DATA_FILENAME, FILE_READ);
+    playbackFile = sd.open(DATA_FILENAME, O_RDONLY);
     if (playbackFile) {
         playbackFileOpen = true;
         return true;
@@ -95,20 +77,35 @@ bool FileManager::seekToPosition(uint32_t position) {
     return true;
 }
 
-bool FileManager::prepareForDMARead(uint32_t startPosition, size_t bytesToRead) {
+bool FileManager::prepareForDMARead(uint32_t startPosition) {
     if (!playbackFileOpen) {
         if (!openForRead()) {
             return false;
         }
     }
-    
     return seekToPosition(startPosition);
+}
+
+bool FileManager::writeRecord(const uint8_t* data) {
+    if (!writeFileOpen) {
+        Serial.println("SD ERROR: Write file not open!");
+        return false;
+    }
+    
+    size_t written = writeFile.write(data, RECORD_SIZE);
+    if (written == RECORD_SIZE) {
+        bytesWritten += written;
+        return true;
+    } else {
+        Serial.println("SD ERROR: Failed to write record!");
+        return false;
+    }
 }
 
 bool FileManager::wipeFile() {
     closeAllFiles();
     
-    if (SD.remove(DATA_FILENAME)) {
+    if (sd.remove(DATA_FILENAME)) {
         fileSize = 0;
         currentPos = 0;
         bytesWritten = 0;

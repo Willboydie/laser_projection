@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <SD.h>
 #include <SPI.h>
 #include <DAC.h>
 #include <TTL.h>
@@ -7,6 +6,7 @@
 #include "SystemState.h"
 #include "CommandProcessor.h"
 #include "Projector.h"
+#include "Constants.h"
 
 // ======== GLOBALS ========
 FileManager fileManager;
@@ -16,7 +16,7 @@ CommandProcessor commandProcessor(&fileManager, &systemState, &projector);
 
 // Command processing variables
 uint8_t cmd;
-uint8_t payload[5]; // RECORD_SIZE
+uint8_t payload[RECORD_SIZE];
 uint32_t loopCounter = 0;
 
 

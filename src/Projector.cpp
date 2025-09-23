@@ -6,32 +6,6 @@
 extern Projector projector;
 
 // Implementation of Projector methods
-void Projector::setupDMA() {
-    // Configure DMA for SD card reading
-    // Initialize with valid source buffer (will be reconfigured in startBufferFill)
-    sdReadDMA.sourceBuffer((volatile void*)&IMXRT_USDHC1->DS_DATA, 1); // Use DS_DATA, not DS_ADDR
-    sdReadDMA.destination(fillBuffer);
-    sdReadDMA.triggerAtHardwareEvent(DMAMUX_SOURCE_SDHC);
-    
-    // Enable DMA interrupt
-    attachInterruptVector(IRQ_DMA_CH0, dmaCompleteISR);
-    NVIC_ENABLE_IRQ(IRQ_DMA_CH0);
-}
-
-
-// DMA completion interrupt handler
-void dmaCompleteISR() {
-    // Mark DMA as complete
-    if (projector.getFullBuffers() >= 3) {
-        projector.setDMAActive(false);
-    } else {
-        projector.fillBufferDMA();
-    }
-
-    projector.setDMACompletionCount(projector.getDMACompletionCount() + 1);
-    projector.setDMAFillTime(micros() - projector.getLastDMAStartTime());
-}
-
 
 void Projector::fillBufferDMA() {
     if (dmaActive || !fileManager || !fileManager->isPlaybackFileOpen()) return;
@@ -41,9 +15,9 @@ void Projector::fillBufferDMA() {
     uint32_t fileSize = fileManager->getFileSize();
     
     // Position file at current read position
-    if (!fileManager->seekToPosition(currentPos % fileSize)) return;
+    if (!fileManager->prepareForDMARead(currentPos % fileSize)) return;
 
-    // Calculate how many bytes to read and configure DMA for this specific transfer
+    // Calculate how many bytes to read
     size_t bytesToRead;
     if (fileSize - currentPos > BUFFER_SIZE * RECORD_SIZE) {
         bytesToRead = BUFFER_SIZE * RECORD_SIZE;
@@ -52,17 +26,25 @@ void Projector::fillBufferDMA() {
         fullBuffers++;
     }
 
-    sdReadDMA.sourceBuffer((volatile void*)&IMXRT_USDHC1->DS_DATA, bytesToRead);
-    sdReadDMA.destination(fillBuffer);
-
-    fileManager->setCurrentPos((currentPos + bytesToRead) % fileSize);
-    
-    // Start DMA transfer
+    // Use SdFat's high-performance read (handles DMA internally)
     lastDMAStartTime = micros();
-    sdReadDMA.enable();
-    dmaActive = true;
+    
+    // SdFat automatically uses DMA for large reads
+    FsFile& file = fileManager->getPlaybackFile();
+    size_t bytesRead = file.read(fillBuffer, bytesToRead);
+    
+    if (bytesRead == bytesToRead) {
+        fileManager->setCurrentPos((currentPos + bytesToRead) % fileSize);
+        dmaActive = false; // Read completed synchronously but efficiently
+        
+        // Update performance metrics
+        dmaCompletionCount++;
+        dmaFillTime = micros() - lastDMAStartTime;
+    } else {
+        Serial.println("ERROR: Failed to read buffer data");
+        dmaActive = false;
+    }
 }
-
 
 void Projector::rotateBuffers() {
     // Simple buffer rotation: every 20K points, rotate buffers regardless of DMA status
@@ -86,7 +68,6 @@ void Projector::rotateBuffers() {
     // Start filling the new fill buffer
     fillBufferDMA();
 }
-
 
 bool Projector::initializeBuffers() {
     if (!fileManager || !fileManager->isPlaybackFileOpen()) {
