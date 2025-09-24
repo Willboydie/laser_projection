@@ -70,7 +70,7 @@ bool FileManager::seekToPosition(uint32_t position) {
     
     // Only seek if position changed (optimization)
     if (position != lastSeekPosition) {
-        playbackFile.seek(position);
+        playbackFile.seek(position % fileSize);
         lastSeekPosition = position;
     }
     

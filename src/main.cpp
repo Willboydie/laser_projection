@@ -44,10 +44,10 @@ void setup() {
 
 // ======== MAIN LOOP ========
 
-static uint32_t startTime = millis();
+static uint32_t startTime = micros();
 void loop() {
   // Check for serial commands (less frequently to reduce overhead)
-  if (loopCounter % 1000 == 0) {
+  if (loopCounter % 2000 == 0) {
     if (Serial.available() >= 6) { // 1 command + 5 payload bytes
       cmd = Serial.read();
       
@@ -70,8 +70,13 @@ void loop() {
   
   // Debug info (less frequent)
   if ((loopCounter % 1000000 == 0) && (systemState.isCurrentlyProjecting())) {
+    uint32_t currentTime = micros();
+    uint32_t elapsedTime = (currentTime >= startTime) ? 
+                          (currentTime - startTime) : 
+                          (0xFFFFFFFF - startTime + currentTime + 1);
+    
     Serial.print("Frequency: ");
-    Serial.print(1000000 / (millis() - startTime));
+    Serial.print(1000000.0 / elapsedTime);  // Convert microseconds to Hz
     Serial.println("Hz");
     Serial.print("Average DMA fill time: ");
     Serial.print(projector.getDMACompletionCount() > 0 ? 
@@ -81,7 +86,7 @@ void loop() {
     Serial.println();
     
     loopCounter = 0;
-    startTime = millis();
+    startTime = currentTime;
   }
 }
 

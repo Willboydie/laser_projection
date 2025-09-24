@@ -7,70 +7,84 @@ extern Projector projector;
 
 // Implementation of Projector methods
 
-void Projector::fillBufferDMA() {
-    if (dmaActive || !fileManager || !fileManager->isPlaybackFileOpen()) return;
-    
-    // Get current position and file size
-    uint32_t currentPos = fileManager->getCurrentPos();
+bool Projector::fillBuffer() {
+    if (dmaActive || !fileManager || !fileManager->openForRead()) return false;
+    if (!fileManager->prepareForDMARead(0)) return false;
+
+    uint32_t filePosition = 0;
+    for (int i = 0; i < filesPerBuffer; i++) {
+        int bytesRead = do1BufferFill(fillingBuffer, filePosition);
+        if (bytesRead == 0) {
+            Serial.println("ERROR: Failed to fill buffer");
+            return false;
+        }
+        filePosition += bytesRead;
+    }
+    return true;
+}
+
+int Projector::do1BufferFill(uint8_t* buffer, uint32_t filePosition) {
+    if (!fileManager || !fileManager->openForRead()) return 0;
+    if (!fileManager->prepareForDMARead(filePosition)) return 0;
     uint32_t fileSize = fileManager->getFileSize();
-    
-    // Position file at current read position
-    if (!fileManager->prepareForDMARead(currentPos % fileSize)) return;
+    if (fileSize == 0) return 0;
+    // Use SdFat's high-performance read (handles DMA internally)
+    lastDMAStartTime = micros();
 
     // Calculate how many bytes to read
     size_t bytesToRead;
-    if (fileSize - currentPos > BUFFER_SIZE * RECORD_SIZE) {
+    if (fileSize - filePosition > BUFFER_SIZE * RECORD_SIZE) {
         bytesToRead = BUFFER_SIZE * RECORD_SIZE;
     } else {
-        bytesToRead = fileSize - currentPos;
-        fullBuffers++;
+        bytesToRead = fileSize - filePosition;
     }
-
-    // Use SdFat's high-performance read (handles DMA internally)
-    lastDMAStartTime = micros();
     
     // SdFat automatically uses DMA for large reads
     FsFile& file = fileManager->getPlaybackFile();
-    size_t bytesRead = file.read(fillBuffer, bytesToRead);
+    size_t bytesRead = file.read(buffer, bytesToRead);
     
     if (bytesRead == bytesToRead) {
-        fileManager->setCurrentPos((currentPos + bytesToRead) % fileSize);
+        fileManager->setCurrentPos((filePosition + bytesToRead) % fileManager->getFileSize());
         dmaActive = false; // Read completed synchronously but efficiently
         
         // Update performance metrics
         dmaCompletionCount++;
         dmaFillTime = micros() - lastDMAStartTime;
+        return bytesToRead;
     } else {
         Serial.println("ERROR: Failed to read buffer data");
         dmaActive = false;
+        return 0;
     }
+    
 }
 
-void Projector::rotateBuffers() {
+bool Projector::rotateBuffers() {
     // Simple buffer rotation: every 20K points, rotate buffers regardless of DMA status
     // The three-buffer system ensures we always have a ready buffer available
 
     // Rotate buffer indices: active -> ready, ready -> fill, fill -> active
     oldActive = activeBuffer;
     oldReady = readyBuffer;
-    oldFill = fillBuffer;
+    oldFill = fillingBuffer;
     
     activeBuffer = oldReady;  // Ready buffer becomes active
     readyBuffer = oldFill;    // Fill buffer becomes ready
-    fillBuffer = oldActive;   // Old active buffer becomes fill target
+    fillingBuffer = oldActive;   // Old active buffer becomes fill target
     
     // Reset position in new active buffer
     activePos = 0;
-
-    //Tell memory retreival to start filling the used-up buffer
-    fullBuffers--;
     
     // Start filling the new fill buffer
-    fillBufferDMA();
+    if (!fillBuffer()) {
+        Serial.println("ERROR: Failed to fill buffer");
+        return false;
+    }
+    return true;
 }
 
 bool Projector::initializeBuffers() {
-    if (!fileManager || !fileManager->isPlaybackFileOpen()) {
+    if (!fileManager || !fileManager->openForRead()) {
         Serial.println("ERROR: File manager not available or file not open");
         return false;
     }
@@ -78,15 +92,17 @@ bool Projector::initializeBuffers() {
     Serial.println("Initializing three-buffer system...");
     
     // Fill all three buffers sequentially
-    fillBufferDMA();
-    while (fullBuffers < 3) {
-        delayMicroseconds(100);
-        Serial.print("Waiting for buffers to fill: ");
-        Serial.println(fullBuffers);
+    for (int i = 0; i < 3; i++) {
+        if (!fillBuffer()) {
+            Serial.print("ERROR: Failed to fill buffer: ");
+            Serial.println(i);
+            return false;
+        }
     }
     
     buffersInitialized = true;
 
+    fileManager->closeAllFiles();
     Serial.println("Three-buffer system initialized successfully");
     return true;
 }

@@ -30,12 +30,11 @@ private:
     
     // Buffer management
     uint8_t* activeBuffer = bufferA;    // Currently projecting from this buffer
-    uint8_t* fillBuffer = bufferB;      // Currently filling this buffer  
+    uint8_t* fillingBuffer = bufferB;      // Currently filling this buffer  
     uint8_t* readyBuffer = bufferC;     // This buffer is ready to become active
     uint8_t* oldActive;
     uint8_t* oldReady;
     uint8_t* oldFill;
-    uint8_t fullBuffers = 0;
 
     uint32_t activePos = 0;           // Position within active buffer
     bool buffersInitialized = false;  // All buffers filled on startup
@@ -57,6 +56,8 @@ private:
     FileManager* fileManager;
     SystemState* systemState;
 
+    int filesPerBuffer = 0;
+
 public:
 
     void init(FileManager* fm, SystemState* ss) {
@@ -67,12 +68,15 @@ public:
         // Initialize buffer state
         activePos = 0;
         buffersInitialized = false;
-        fullBuffers = 0;
         
         // Initialize performance monitoring
         dmaCompletionCount = 0;
         dmaFillTime = 0;
         lastDMAStartTime = 0;
+
+        filesPerBuffer = (BUFFER_SIZE * RECORD_SIZE + (fileManager->getFileSize() - 1)) / (fileManager->getFileSize());
+
+        initializeBuffers();
         
         Serial.println("High-speed projector initialized with SdFat");
     }
@@ -108,15 +112,15 @@ public:
     }
     
     // Buffer filling methods
-    bool fillBufferFromFile(uint8_t* buffer, uint32_t filePosition);
-    void fillBufferDMA();
+    bool fillBuffer();
+    int do1BufferFill(uint8_t* buffer, uint32_t filePosition);
     
     // Buffer rotation methods
-    void rotateBuffers();
+    bool rotateBuffers();
     
     // Main projection loop - optimized for 1MHz
-    void update() {
-        if (!systemState->isCurrentlyProjecting() || !buffersInitialized) return;
+    bool update() {
+        if (!systemState->isCurrentlyProjecting() || !buffersInitialized) return false;
         
         uint32_t currentTime = micros();
         uint32_t elapsedTime = (currentTime >= lastUpdateTime) ? 
@@ -148,17 +152,20 @@ public:
             
             // Check if we need to rotate buffers
             if (activePos >= BUFFER_SIZE) {
-                rotateBuffers();
+                if (!rotateBuffers()) {
+                    Serial.println("ERROR: Failed to rotate buffers");
+                    return false;
+                }
             }
         }
-    }
+        return true;
+    }   
     
     // Getters for status
     uint32_t getActivePosition() const { return activePos; }
     uint32_t getDMAFillTime() const { return dmaFillTime; }
     uint32_t getDMACompletionCount() const { return dmaCompletionCount; }
     uint32_t getLastDMAStartTime() const { return lastDMAStartTime; }
-    uint8_t getFullBuffers() const { return fullBuffers; }
 
     // Setters
     void setDMAActive(bool active) { dmaActive = active; }

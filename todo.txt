@@ -1,5 +1,8 @@
 TO DO:
 
+- Projection
+--- Fix delay calc
+
 - DXF
 --- Remove [2.641e5, 6.9514e5, 0.0]
 --- Deal with elevation
