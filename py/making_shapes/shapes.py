@@ -68,31 +68,3 @@ def hemiRectangle(inc, c, r):
     path = np.concatenate((top_hemi, right_square, bottom, left_square), axis=0)
 
     return path
-
-
-def toSpherical(cart_point):
-
-    x, y, z = cart_point
-    r = np.sqrt(x**2 + y**2 + z**2)
-
-    phi = np.arcsin(z/r)
-    # theta = np.arctan2(y, x)
-    # if y > 0:
-    #     theta = np.arccos(x / (r*np.cos(phi)))
-    # else:
-    #     theta = -np.arccos(x / (r*np.cos(phi)))
-
-    theta = np.arcsin(y / (r*np.cos(phi)))
-
-    # print(f"arctan theta: {theta1},  arccos theta: {theta2},   arcsin theta: {theta3}")
-
-    return [theta, phi]
-
-
-
-def project_onto_outward_curling_sphere(cart_path, alpha, beta):
-    for point in cart_path:
-        x, y, z = point
-        point[0] = 2*x - np.sqrt(x**2 + alpha*y**2 - beta*z**2)
-
-    return cart_path

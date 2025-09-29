@@ -48,6 +48,7 @@ private:
     // Projection Timing
     uint32_t lastUpdateTime = 0;
     uint32_t currentDelayUs = 0;
+    uint32_t pointsProjected = 0;
     
     // Laser State
     bool laser_on = true;
@@ -57,6 +58,7 @@ private:
     SystemState* systemState;
 
     int filesPerBuffer = 0;
+    uint32_t fileSize = 0;
 
 public:
 
@@ -75,6 +77,7 @@ public:
         lastDMAStartTime = 0;
 
         filesPerBuffer = (BUFFER_SIZE * RECORD_SIZE + (fileManager->getFileSize() - 1)) / (fileManager->getFileSize());
+        fileSize = fileManager->getFileSize();
 
         initializeBuffers();
         
@@ -83,7 +86,7 @@ public:
     
     bool initializeBuffers();
     
-    bool startProjection(uint32_t delayUs) {
+    bool startProjection(float delayUs) {
         if (!buffersInitialized) {
             Serial.println("ERROR: Buffers not initialized");
             return false;
@@ -149,6 +152,7 @@ public:
             
             activePos++;
             lastUpdateTime = currentTime;
+            pointsProjected++;
             
             // Check if we need to rotate buffers
             if (activePos >= BUFFER_SIZE) {
@@ -166,11 +170,14 @@ public:
     uint32_t getDMAFillTime() const { return dmaFillTime; }
     uint32_t getDMACompletionCount() const { return dmaCompletionCount; }
     uint32_t getLastDMAStartTime() const { return lastDMAStartTime; }
+    uint32_t getPointsProjected() const { return pointsProjected; }
 
     // Setters
     void setDMAActive(bool active) { dmaActive = active; }
     void setDMACompletionCount(uint32_t count) { dmaCompletionCount = count; }
     void setDMAFillTime(uint32_t time) { dmaFillTime = time; }
+    void setLastDMAStartTime(uint32_t time) { lastDMAStartTime = time; }
+    void setPointsProjected(uint32_t points) { pointsProjected = points; }
 };
 
     // Global instance

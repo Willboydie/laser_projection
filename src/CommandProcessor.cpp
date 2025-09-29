@@ -5,7 +5,6 @@
 #include "FileManager.h"
 #include "SystemState.h"
 
-
 CommandProcessor::CommandProcessor(FileManager* fm, SystemState* ss, Projector* proj) 
     : fileManager(fm), systemState(ss), projector(proj) {
     // Constructor - just store pointers
@@ -153,6 +152,11 @@ void CommandProcessor::handleResetCommand() {
     
     // Close all files
     fileManager->closeAllFiles();
+
+    // Initialize file system
+    if (!fileManager->initialize()) {
+        Serial.println("FATAL: File system initialization failed!");
+    }
     
     // Reset file positions
     fileManager->setCurrentPos(0);
@@ -160,15 +164,23 @@ void CommandProcessor::handleResetCommand() {
     // Reinitialize DAC + Laser
     initDAC();
     initTTL();
-    
+
+    // Reinitialize projector
+    projector->init(fileManager, systemState);
+
     Serial.println("Reset complete");
+    Serial.println("Status:");
+    systemState->printStatus();
+    Serial.println("--------------------------------");
 }
 
 uint32_t CommandProcessor::calculateDelayUs(uint8_t payload[RECORD_SIZE]) {
-    uint8_t freq_KHz = payload[0];
+    uint8_t freq_KHz_lower = payload[0];
+    uint8_t freq_KHz_upper = payload[1];
+    uint16_t freq_KHz = (freq_KHz_upper << 8) | freq_KHz_lower;
     
-    if (freq_KHz >= 250) {
-        Serial.println("PLAY: 250KHz (full speed)");
+    if (freq_KHz >= 854) {
+        Serial.println("PLAY: (full speed)");
         return 0;  // No delay for full speed
     } else if (freq_KHz == 0) {
         Serial.println("PLAY: 1KHz (slowest)");

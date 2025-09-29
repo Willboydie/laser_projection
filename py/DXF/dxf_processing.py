@@ -11,15 +11,15 @@ from geometry.simplify import join_polylines
 # "LWPOLYLINE"    # Polyline defined by vertices and bulge values
 
 
-def save_dxf(vectors, selected_layers):#, eps=0.01, msp_=True, psp_=False, blocks_=False):
+def save_dxf(file_path, eps=0.01, msp_=True, psp_=False, blocks_=False):
 
-    # vectors, num_points = read_dxf_vectors(file_path, eps, msp_, psp_, blocks_)
-    layer_path = [vectors[layer] for layer in selected_layers]
+    layers, num_points = read_dxf_vectors(file_path, eps, msp_, psp_, blocks_)
+    vectors = [layers[i] for i in range(len(layers))]
 
     with open(f"../../data/dxf/temp.pkl", "wb") as f:
-        pickle.dump(layer_path, f)
+        pickle.dump(vectors, f)
     
-    print(f"Saved selected_layers to data/dxf/temp.pkl")
+    print(f"Saved vectors to data/dxf/temp.pkl")
 
 
 def read_dxf_vectors(file_path, eps, msp_=True, psp_=False, blocks_=False):
@@ -48,9 +48,6 @@ def read_dxf_vectors(file_path, eps, msp_=True, psp_=False, blocks_=False):
                     vectors.append(path)
         all_vectors[layer] = vectors
         num_points += len(vectors)
-
-    all_vectors['INTERNAL_WALLS'] = join_polylines(all_vectors['INTERNAL_WALLS'], 1e-2)
-    all_vectors['EXTERNAL_WALLS'] = join_polylines(all_vectors['EXTERNAL_WALLS'], 1e-2)
 
     return all_vectors, num_points
 

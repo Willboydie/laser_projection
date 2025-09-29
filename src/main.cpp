@@ -19,11 +19,13 @@ uint8_t cmd;
 uint8_t payload[RECORD_SIZE];
 uint32_t loopCounter = 0;
 
-
 // ======== SETUP ========
 void setup() {
   Serial.begin(115200);
   while (!Serial);
+
+  // testDACWiring();
+  // while(1);
 
   // Initialize hardware
   initTTL();
@@ -32,7 +34,6 @@ void setup() {
   // Initialize file system
   if (!fileManager.initialize()) {
     Serial.println("FATAL: File system initialization failed!");
-    while (1);
   }
   
   // Initialize projector with file manager reference
@@ -69,15 +70,12 @@ void loop() {
   loopCounter++;
   
   // Debug info (less frequent)
-  if ((loopCounter % 1000000 == 0) && (systemState.isCurrentlyProjecting())) {
-    uint32_t currentTime = micros();
-    uint32_t elapsedTime = (currentTime >= startTime) ? 
-                          (currentTime - startTime) : 
-                          (0xFFFFFFFF - startTime + currentTime + 1);
+  if ((loopCounter % 2000000 == 0) && (systemState.isCurrentlyProjecting())) {
+    uint32_t elapsedTime = micros() - startTime;
     
     Serial.print("Frequency: ");
-    Serial.print(1000000.0 / elapsedTime);  // Convert microseconds to Hz
-    Serial.println("Hz");
+    Serial.print(1000000.0 * projector.getPointsProjected() / elapsedTime);  // Convert microseconds to Hz
+    Serial.println(" pps");
     Serial.print("Average DMA fill time: ");
     Serial.print(projector.getDMACompletionCount() > 0 ? 
         String(projector.getDMAFillTime() / projector.getDMACompletionCount()) : 
@@ -86,7 +84,8 @@ void loop() {
     Serial.println();
     
     loopCounter = 0;
-    startTime = currentTime;
+    startTime = micros();
+    projector.setPointsProjected(0);
   }
 }
 

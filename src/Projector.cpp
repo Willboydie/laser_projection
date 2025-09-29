@@ -8,6 +8,8 @@ extern Projector projector;
 // Implementation of Projector methods
 
 bool Projector::fillBuffer() {
+    lastDMAStartTime = micros();
+
     if (dmaActive || !fileManager || !fileManager->openForRead()) return false;
     if (!fileManager->prepareForDMARead(0)) return false;
 
@@ -20,16 +22,16 @@ bool Projector::fillBuffer() {
         }
         filePosition += bytesRead;
     }
+    // Update performance metrics
+    dmaCompletionCount++;
+    dmaFillTime = micros() - lastDMAStartTime;
     return true;
 }
 
 int Projector::do1BufferFill(uint8_t* buffer, uint32_t filePosition) {
     if (!fileManager || !fileManager->openForRead()) return 0;
     if (!fileManager->prepareForDMARead(filePosition)) return 0;
-    uint32_t fileSize = fileManager->getFileSize();
     if (fileSize == 0) return 0;
-    // Use SdFat's high-performance read (handles DMA internally)
-    lastDMAStartTime = micros();
 
     // Calculate how many bytes to read
     size_t bytesToRead;
@@ -47,9 +49,6 @@ int Projector::do1BufferFill(uint8_t* buffer, uint32_t filePosition) {
         fileManager->setCurrentPos((filePosition + bytesToRead) % fileManager->getFileSize());
         dmaActive = false; // Read completed synchronously but efficiently
         
-        // Update performance metrics
-        dmaCompletionCount++;
-        dmaFillTime = micros() - lastDMAStartTime;
         return bytesToRead;
     } else {
         Serial.println("ERROR: Failed to read buffer data");
@@ -101,6 +100,9 @@ bool Projector::initializeBuffers() {
     }
     
     buffersInitialized = true;
+    dmaCompletionCount = 0;
+    dmaFillTime = 0;
+    lastDMAStartTime = 0;
 
     fileManager->closeAllFiles();
     Serial.println("Three-buffer system initialized successfully");

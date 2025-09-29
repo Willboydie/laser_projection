@@ -94,7 +94,10 @@ class GalvoController:
         
         # Define speed options with proper bit positions
         self.speed_options = {
-            "Full Speed (250KHz)": 250,
+            "855KHz": 855,
+            "750KHz": 750,
+            "500KHz": 500,
+            "250KHz": 250,
             "100KHz": 100,
             "75KHz": 75,
             "50KHz": 50,
@@ -103,7 +106,7 @@ class GalvoController:
             "1KHz": 1,
         }
         
-        self.speed_var = tk.StringVar(value="Full Speed (250KHz)")
+        self.speed_var = tk.StringVar(value="855KHz")
         self.speed_combo = ttk.Combobox(playback_frame, textvariable=self.speed_var, 
                                        values=list(self.speed_options.keys()), 
                                        state='readonly', width=20)
@@ -323,7 +326,10 @@ class GalvoController:
             return
             
         freq_KHz = self.speed_options[selected_speed]
-        payload_bytes = bytes([freq_KHz, 0, 0, 0, 0])
+        # Pack freq_KHz as 16-bit: lower 8 bits in first byte, upper 8 bits in second byte
+        freq_lower = freq_KHz & 0xFF  # Lower 8 bits
+        freq_upper = (freq_KHz >> 8) & 0xFF  # Upper 8 bits
+        payload_bytes = bytes([freq_lower, freq_upper, 0, 0, 0])
         
         if self.send_command(PLAY_CMD, payload_bytes):
             self.log_message(f"Started playback at {selected_speed}")

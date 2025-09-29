@@ -2,6 +2,8 @@ TO DO:
 
 - Projection
 --- Fix delay calc
+--- Fix SD card initialisation (allow reset) (also try to diagnose)
+--- Issue when buffer size is too high
 
 - DXF
 --- Remove [2.641e5, 6.9514e5, 0.0]
