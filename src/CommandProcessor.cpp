@@ -56,6 +56,8 @@ void CommandProcessor::handleWriteCommand() {
     if (fileManager->wipeFile() && fileManager->openForWrite()) {
         systemState->setMode(SystemState::MODE_WRITE);
         systemState->setProjecting(false);
+        fileManager->setCurrentPos(0);
+        fileManager->seekToPosition(0);
         Serial.println("Ready to save records");
     } else {
         Serial.println("ERROR: Failed to prepare for writing");
@@ -70,6 +72,8 @@ void CommandProcessor::handleProjectCommand() {
     if (fileManager->updateFileSize() && fileManager->openForRead()) {
         systemState->setMode(SystemState::MODE_PROJECT);
         systemState->setProjecting(false);
+        fileManager->setCurrentPos(0);
+        fileManager->seekToPosition(0);
         Serial.println("Ready for playback");
     } else {
         Serial.println("ERROR: Failed to prepare for projection");
@@ -82,11 +86,9 @@ void CommandProcessor::handleSaveCommand(uint8_t payload[RECORD_SIZE]) {
         return;
     }
     
-    if (fileManager->writeRecord(payload)) {
-        Serial.print("Saved record, total bytes: ");
-        Serial.println(fileManager->getBytesWritten());
-    } else {
-        Serial.println("ERROR: Failed to save record");
+    if (!fileManager->writeRecord(payload)) {
+       Serial.println("ERROR: Failed to save record");
+       return;
     }
 }
 
@@ -183,8 +185,8 @@ uint32_t CommandProcessor::calculateDelayUs(uint8_t payload[RECORD_SIZE]) {
         Serial.println("PLAY: (full speed)");
         return 0;  // No delay for full speed
     } else if (freq_KHz == 0) {
-        Serial.println("PLAY: 1KHz (slowest)");
-        return 1000; 
+        Serial.println("DEBUG SPEED: 10Hz");
+        return 100000; 
     } else {
         Serial.print("PLAY: ");
         Serial.print(freq_KHz);

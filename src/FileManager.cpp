@@ -77,14 +77,6 @@ bool FileManager::seekToPosition(uint32_t position) {
     return true;
 }
 
-bool FileManager::prepareForDMARead(uint32_t startPosition) {
-    if (!playbackFileOpen) {
-        if (!openForRead()) {
-            return false;
-        }
-    }
-    return seekToPosition(startPosition);
-}
 
 bool FileManager::writeRecord(const uint8_t* data) {
     if (!writeFileOpen) {

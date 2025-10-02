@@ -1,22 +1,74 @@
 TO DO:
 
-- Projection
---- Fix delay calc
+- Projection Code
 --- Fix SD card initialisation (allow reset) (also try to diagnose)
 --- Issue when buffer size is too high
+--- Buffer fails to fill when file is small
+--- Fix opening and closing of playback file
 
-- DXF
+LPSPI (Standard SPI):
+The standard SPI library uses the LPSPI peripheral.
+Fact: The official maximum reliable clock speed for LPSPI is 30 MHz. 
+Exceeding this risks data errors due to setup/hold time violations.
+Best Practice (Signal Integrity): 
+For high-speed SPI, especially with external wiring, add series termination resistors (50-220Ω, 100Ω is common) 
+on the MOSI, SCK, and CS lines, placed close to the Teensy's pins.
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+- Naive Spherical Conversion
+--- Find Voltage->Angle mapping (setup test).
+--- Mathematically model the beam direction from first principles.
+--- Find binary commmand to voltage mapping.
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+- Projection Distortion Correction
+
+binX, binY = naiveConversion(theta, phi)
+
+The equation  F(binX, binY) = err  is an error surface in 3D space.
+
+Let binX = x and binY = y.
+
+Assume G(x, y) = a + b + cxy + dx^2 + ey^2 + fx^2y^2  (Radial-specific polynomials (e.g., even powers) are preferred in lens correction for their physical relevance.)
+
+Learn a, b, c, d, e, ..., p such that norm(G(x, y) - F(x, y)) is minimised for all 0 <= x,y <= max_bin. 
+
+G(binX, binY) becomes the distortion correction term for any binary command binX, binY.
+
+
+Things to Consider:
+
+Poor Extrapolation and Boundary Behavior: 
+Polynomials often behave erratically outside the fitted range (0 to max_bin), which could cause issues if commands exceed calibrated bounds. 
+Galvo distortions are bounded and periodic in nature (due to angular mechanics), but polynomials aren't inherently constrained, risking unphysical corrections.
+
+Assumption of Scalar Error: 
+The query treats err as a single value, but galvo distortions are typically 2D (errors in both X and Y directions). 
+Fitting a single G might suffice for magnitude, but separate polynomials for Δx and Δy corrections are often needed for precision. 
+Additionally, the minimization uses absolute error (|G - F|), which is robust to outliers but computationally harder than L2 norm commonly used in regression.
+
+Combination with Physical Model:
+Use mechanical/optical modelling to generate a naive transformation. This perfomance of this step takes pressure off the error fit.
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+- Path Processing
+--- Write variable density sampling algorithm
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+- DXF App
 --- Remove [2.641e5, 6.9514e5, 0.0]
 --- Deal with elevation
 --- Deal with paperspace and blocks
 --- Deal with unused entities and layers
-
-- Spherical Path Processing
---- Find Voltage->Angle mapping (setup test)
---- Write spherical conversion and variable density sampling algorithms
-
-- Projection Distortion Correction
---- Test Chinese guys' distortion correction method.
---- Design model and calibration pattern (some path) which maps voltages to points on the X=c plane.
---- Write the algorithm which pairs any point (x, y, z) with a corresponding point on the X=c plane by
-tracing the vector O_2 -> (x, y, z) to the plane.

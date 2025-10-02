@@ -9,7 +9,7 @@
 void initTTL();
 
 // Fast laser control macros
-#define LASER_ON_FAST() GPIO2_DR_CLEAR = (1 << 17)
-#define LASER_OFF_FAST() GPIO2_DR_SET = (1 << 17)
+void LASER_ON_FAST();
+void LASER_OFF_FAST();
 
 #endif

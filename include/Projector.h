@@ -139,13 +139,20 @@ public:
             
             // Update DAC (ultra-fast inline macro)
             FAST_DAC_UPDATE(valA, valB);
+            // Serial.print("DAC A: ");
+            // Serial.println(valA);
+            // Serial.print("DAC B: ");
+            // Serial.println(valB);
+            // Serial.print("Laser State: ");
+            // Serial.println(laserState);
+            // Serial.println("--------------------------------");
             
             // Update laser (direct register access)
             if (laser_on != laserState) {
                 if (laserState) {
-                    LASER_ON_FAST();
+                    digitalWriteFast(LASER_ON, LOW);
                 } else {
-                    LASER_OFF_FAST();
+                    digitalWriteFast(LASER_ON, HIGH);
                 }
                 laser_on = laserState;
             }
@@ -173,7 +180,6 @@ public:
     uint32_t getPointsProjected() const { return pointsProjected; }
 
     // Setters
-    void setDMAActive(bool active) { dmaActive = active; }
     void setDMACompletionCount(uint32_t count) { dmaCompletionCount = count; }
     void setDMAFillTime(uint32_t time) { dmaFillTime = time; }
     void setLastDMAStartTime(uint32_t time) { lastDMAStartTime = time; }

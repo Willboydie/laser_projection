@@ -54,8 +54,6 @@ public:
     bool isPlaybackFileOpen() const { return playbackFileOpen; }
     bool isWriteFileOpen() const { return writeFileOpen; }
     
-    // DMA support
-    bool prepareForDMARead(uint32_t startPosition);
     
     // Status
     void printStatus() const;

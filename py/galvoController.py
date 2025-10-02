@@ -104,6 +104,7 @@ class GalvoController:
             "25KHz": 25,
             "10KHz": 10,
             "1KHz": 1,
+            "DEBUG": 0
         }
         
         self.speed_var = tk.StringVar(value="855KHz")
@@ -302,7 +303,7 @@ class GalvoController:
                              self.master.update_idletasks()
                              
                              # Small delay to prevent overwhelming the serial buffer
-                             time.sleep(0.0001)
+                             time.sleep(0.00001)
                          except Exception as e:
                              self.log_message(f"Error sending packet: {e}")
                              raise

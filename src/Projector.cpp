@@ -10,29 +10,30 @@ extern Projector projector;
 bool Projector::fillBuffer() {
     lastDMAStartTime = micros();
 
-    if (dmaActive || !fileManager || !fileManager->openForRead()) return false;
-    if (!fileManager->prepareForDMARead(0)) return false;
-
-    uint32_t filePosition = 0;
     for (int i = 0; i < filesPerBuffer; i++) {
-        int bytesRead = do1BufferFill(fillingBuffer, filePosition);
+        fileManager->seekToPosition(fileManager->getCurrentPos());
+        int bytesRead = do1BufferFill(fillingBuffer, fileManager->getCurrentPos());
         if (bytesRead == 0) {
             Serial.println("ERROR: Failed to fill buffer");
             return false;
         }
-        filePosition += bytesRead;
+        fileManager->setCurrentPos(fileManager->getCurrentPos() + bytesRead);
     }
-    // Update performance metrics
-    dmaCompletionCount++;
-    dmaFillTime = micros() - lastDMAStartTime;
+    
     return true;
 }
 
 int Projector::do1BufferFill(uint8_t* buffer, uint32_t filePosition) {
-    if (!fileManager || !fileManager->openForRead()) return 0;
-    if (!fileManager->prepareForDMARead(filePosition)) return 0;
+    if (!fileManager) return 0;
     if (fileSize == 0) return 0;
 
+    // SdFat automatically uses DMA for large reads
+    FsFile& file = fileManager->getPlaybackFile();
+    if (!file) {
+        Serial.println("ERROR: Failed to open file");
+        return 0;
+    }
+    
     // Calculate how many bytes to read
     size_t bytesToRead;
     if (fileSize - filePosition > BUFFER_SIZE * RECORD_SIZE) {
@@ -41,25 +42,24 @@ int Projector::do1BufferFill(uint8_t* buffer, uint32_t filePosition) {
         bytesToRead = fileSize - filePosition;
     }
     
-    // SdFat automatically uses DMA for large reads
-    FsFile& file = fileManager->getPlaybackFile();
+    
     size_t bytesRead = file.read(buffer, bytesToRead);
     
     if (bytesRead == bytesToRead) {
-        fileManager->setCurrentPos((filePosition + bytesToRead) % fileManager->getFileSize());
-        dmaActive = false; // Read completed synchronously but efficiently
-        
-        return bytesToRead;
+        // Update performance metrics
+        dmaCompletionCount++;
+        dmaFillTime = micros() - lastDMAStartTime;
+        return bytesRead;
+
     } else {
         Serial.println("ERROR: Failed to read buffer data");
-        dmaActive = false;
         return 0;
     }
-    
 }
 
+
 bool Projector::rotateBuffers() {
-    // Simple buffer rotation: every 20K points, rotate buffers regardless of DMA status
+    // Simple buffer rotation: every BUFFER_SIZE points, rotate buffers
     // The three-buffer system ensures we always have a ready buffer available
 
     // Rotate buffer indices: active -> ready, ready -> fill, fill -> active
@@ -83,7 +83,7 @@ bool Projector::rotateBuffers() {
 }
 
 bool Projector::initializeBuffers() {
-    if (!fileManager || !fileManager->openForRead()) {
+    if (!fileManager) {
         Serial.println("ERROR: File manager not available or file not open");
         return false;
     }
