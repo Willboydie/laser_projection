@@ -58,7 +58,6 @@ private:
     SystemState* systemState;
 
     int filesPerBuffer = 0;
-    uint32_t fileSize = 0;
 
 public:
 
@@ -77,9 +76,6 @@ public:
         lastDMAStartTime = 0;
 
         filesPerBuffer = (BUFFER_SIZE * RECORD_SIZE + (fileManager->getFileSize() - 1)) / (fileManager->getFileSize());
-        fileSize = fileManager->getFileSize();
-
-        initializeBuffers();
         
         Serial.println("High-speed projector initialized with SdFat");
     }
@@ -116,7 +112,7 @@ public:
     
     // Buffer filling methods
     bool fillBuffer();
-    int do1BufferFill(uint8_t* buffer, uint32_t filePosition);
+    int do1BufferFill(uint8_t* buffer, size_t fileSize, uint32_t filePosition);
     
     // Buffer rotation methods
     bool rotateBuffers();

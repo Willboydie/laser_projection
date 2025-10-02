@@ -9,10 +9,12 @@ extern Projector projector;
 
 bool Projector::fillBuffer() {
     lastDMAStartTime = micros();
+    size_t fileSize = fileManager->getFileSize();
+    if (fileSize == 0) return false;
 
     for (int i = 0; i < filesPerBuffer; i++) {
         fileManager->seekToPosition(fileManager->getCurrentPos());
-        int bytesRead = do1BufferFill(fillingBuffer, fileManager->getCurrentPos());
+        int bytesRead = do1BufferFill(fillingBuffer, fileSize, fileManager->getCurrentPos());
         if (bytesRead == 0) {
             Serial.println("ERROR: Failed to fill buffer");
             return false;
@@ -23,7 +25,7 @@ bool Projector::fillBuffer() {
     return true;
 }
 
-int Projector::do1BufferFill(uint8_t* buffer, uint32_t filePosition) {
+int Projector::do1BufferFill(uint8_t* buffer, size_t fileSize, uint32_t filePosition) {
     if (!fileManager) return 0;
     if (fileSize == 0) return 0;
 
@@ -85,6 +87,20 @@ bool Projector::rotateBuffers() {
 bool Projector::initializeBuffers() {
     if (!fileManager) {
         Serial.println("ERROR: File manager not available or file not open");
+        return false;
+    }
+
+    fileManager->closeAllFiles();
+
+    // Update file size and open for reading
+    if (fileManager->openForRead()) {
+        fileManager->setCurrentPos(0);
+        fileManager->seekToPosition(0);
+        Serial.print("SD file opened for read: ");
+        Serial.print(fileManager->getFileSize());
+        Serial.println(" bytes");
+    } else {
+        Serial.println("ERROR: Failed to prepare for buffer fill. Buffers not initialized.");
         return false;
     }
     

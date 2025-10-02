@@ -4,6 +4,7 @@
 #include "TTL.h"
 #include "FileManager.h"
 #include "SystemState.h"
+#include "Constants.h"
 
 CommandProcessor::CommandProcessor(FileManager* fm, SystemState* ss, Projector* proj) 
     : fileManager(fm), systemState(ss), projector(proj) {
@@ -23,7 +24,7 @@ void CommandProcessor::processCommand(uint8_t cmd, uint8_t payload[RECORD_SIZE])
             break;
             
         case SAVE_CMD:
-            printCommandInfo(cmd, "SAVE");
+            // printCommandInfo(cmd, "SAVE");
             handleSaveCommand(payload);
             break;
             
@@ -48,6 +49,7 @@ void CommandProcessor::processCommand(uint8_t cmd, uint8_t payload[RECORD_SIZE])
     }
 }
 
+
 void CommandProcessor::handleWriteCommand() {
     // Close any open files
     fileManager->closeAllFiles();
@@ -56,8 +58,6 @@ void CommandProcessor::handleWriteCommand() {
     if (fileManager->wipeFile() && fileManager->openForWrite()) {
         systemState->setMode(SystemState::MODE_WRITE);
         systemState->setProjecting(false);
-        fileManager->setCurrentPos(0);
-        fileManager->seekToPosition(0);
         Serial.println("Ready to save records");
     } else {
         Serial.println("ERROR: Failed to prepare for writing");
@@ -69,12 +69,16 @@ void CommandProcessor::handleProjectCommand() {
     fileManager->closeAllFiles();
     
     // Update file size and open for reading
-    if (fileManager->updateFileSize() && fileManager->openForRead()) {
+    if (fileManager->openForRead()) {
         systemState->setMode(SystemState::MODE_PROJECT);
         systemState->setProjecting(false);
-        fileManager->setCurrentPos(0);
-        fileManager->seekToPosition(0);
-        Serial.println("Ready for playback");
+        fileManager->seekToPosition(fileManager->getCurrentPos());
+        
+        if (!projector->initializeBuffers()) {
+            Serial.println("ERROR: Failed to initialize buffers");
+            return;
+        }
+        Serial.println("Ready for playback");  
     } else {
         Serial.println("ERROR: Failed to prepare for projection");
     }
@@ -96,32 +100,29 @@ void CommandProcessor::handlePlayCommand(uint8_t payload[RECORD_SIZE]) {
     if (systemState->getMode() != SystemState::MODE_PROJECT) {
         Serial.println("ERROR: Not in PROJECT mode");
         return;
-    }
+        }
     
     // Check file size
     if (fileManager->getFileSize() < RECORD_SIZE) {
         Serial.println("ERROR: File too small for playback");
         return;
-    }
+        }
     
     // Calculate delay
     uint32_t delayUs = calculateDelayUs(payload);
     systemState->setDelay(delayUs);
     
     // Initialize buffers first, then start projection
-    if (projector->initializeBuffers()) {
-        if (projector->startProjection(delayUs)) {
-            systemState->setProjecting(true);
-            Serial.print("HIGH-SPEED PLAYBACK: Started with ");
-            Serial.print(delayUs);
-            Serial.println("μs delay");
-        } else {
-            Serial.println("ERROR: Failed to start projection");
-        }
+    if (projector->startProjection(delayUs)) {
+        systemState->setProjecting(true);
+        Serial.print("HIGH-SPEED PLAYBACK: Started with ");
+        Serial.print(delayUs);
+        Serial.println("μs delay");
     } else {
-        Serial.println("ERROR: Failed to initialize buffers");
+        Serial.println("ERROR: Failed to start projection");
+        }
     }
-}
+
 
 void CommandProcessor::handlePauseCommand() {
     if (systemState->getMode() != SystemState::MODE_PROJECT) {
@@ -160,7 +161,7 @@ void CommandProcessor::handleResetCommand() {
         Serial.println("FATAL: File system initialization failed!");
     }
     
-    // Reset file positions
+    // Reset file position
     fileManager->setCurrentPos(0);
     
     // Reinitialize DAC + Laser

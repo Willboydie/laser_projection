@@ -34,7 +34,7 @@ public:
     
     // File size management
     uint32_t getFileSize() const { return fileSize; }
-    bool updateFileSize();
+    bool setFileSize(size_t size) { fileSize = size; return true; }
     
     // Write operations
     bool openForWrite();
@@ -53,10 +53,7 @@ public:
     void closeAllFiles();
     bool isPlaybackFileOpen() const { return playbackFileOpen; }
     bool isWriteFileOpen() const { return writeFileOpen; }
-    
-    
-    // Status
-    void printStatus() const;
+
 };
 
 #endif
