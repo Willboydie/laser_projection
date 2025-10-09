@@ -37,6 +37,7 @@ private:
     uint8_t* oldFill;
 
     uint32_t activePos = 0;           // Position within active buffer
+    uint32_t fillPos = 0;
     bool buffersInitialized = false;  // All buffers filled on startup
     
     // File reading state (SdFat handles DMA internally)
@@ -68,6 +69,7 @@ public:
         
         // Initialize buffer state
         activePos = 0;
+        fillPos = 0;
         buffersInitialized = false;
         
         // Initialize performance monitoring
@@ -78,6 +80,17 @@ public:
         filesPerBuffer = (BUFFER_SIZE * RECORD_SIZE + (fileManager->getFileSize() - 1)) / (fileManager->getFileSize());
         
         Serial.println("High-speed projector initialized with SdFat");
+    }
+
+    void reset() {
+        activePos = 0;
+        fillPos = 0;
+        buffersInitialized = false;
+        dmaCompletionCount = 0;
+        dmaFillTime = 0;
+        lastDMAStartTime = 0;
+        filesPerBuffer = (BUFFER_SIZE * RECORD_SIZE + (fileManager->getFileSize() - 1)) / (fileManager->getFileSize());
+        Serial.println("High-speed projector reset");
     }
     
     bool initializeBuffers();
@@ -112,7 +125,7 @@ public:
     
     // Buffer filling methods
     bool fillBuffer();
-    int do1BufferFill(uint8_t* buffer, size_t fileSize, uint32_t filePosition);
+    int do1BufferFill(uint8_t* buffer, size_t bytesToRead);
     
     // Buffer rotation methods
     bool rotateBuffers();
@@ -170,6 +183,7 @@ public:
     
     // Getters for status
     uint32_t getActivePosition() const { return activePos; }
+    uint32_t getFillPosition() const { return fillPos; }
     uint32_t getDMAFillTime() const { return dmaFillTime; }
     uint32_t getDMACompletionCount() const { return dmaCompletionCount; }
     uint32_t getLastDMAStartTime() const { return lastDMAStartTime; }
@@ -177,6 +191,7 @@ public:
 
     // Setters
     void setDMACompletionCount(uint32_t count) { dmaCompletionCount = count; }
+    void setFillPosition(uint32_t position) { fillPos = position; }
     void setDMAFillTime(uint32_t time) { dmaFillTime = time; }
     void setLastDMAStartTime(uint32_t time) { lastDMAStartTime = time; }
     void setPointsProjected(uint32_t points) { pointsProjected = points; }

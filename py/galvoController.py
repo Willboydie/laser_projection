@@ -94,20 +94,20 @@ class GalvoController:
         
         # Define speed options with proper bit positions
         self.speed_options = {
-            "855KHz": 855,
-            "750KHz": 750,
-            "500KHz": 500,
-            "250KHz": 250,
+            "200KHz": 200,
+            "175KHz": 175,
+            "150KHz": 150,
+            "125KHz": 125,
             "100KHz": 100,
             "75KHz": 75,
             "50KHz": 50,
             "25KHz": 25,
             "10KHz": 10,
             "1KHz": 1,
-            "DEBUG": 0
+            "DEBUG (10Hz)": 0
         }
         
-        self.speed_var = tk.StringVar(value="855KHz")
+        self.speed_var = tk.StringVar(value="100KHz")
         self.speed_combo = ttk.Combobox(playback_frame, textvariable=self.speed_var, 
                                        values=list(self.speed_options.keys()), 
                                        state='readonly', width=20)
@@ -167,7 +167,7 @@ class GalvoController:
             
             self.connected = True
             self.status_label.config(text="Connected", foreground="green")
-            self.connect_btn.config(state='disabled')
+            self.connect_btn.config(text="Disconnect from Teensy", command=self.disconnect_serial, state='normal')
             
             # Enable control buttons
             self.reset_btn.config(state='normal')
@@ -183,6 +183,32 @@ class GalvoController:
         except Exception as e:
             self.log_message(f"Connection failed: {e}")
             messagebox.showerror("Connection Error", f"Failed to connect: {e}")
+
+    def disconnect_serial(self):
+        """Disconnect from Teensy"""
+        try:
+            self.connected = False
+            
+            if self.ser and self.ser.is_open:
+                self.ser.close()
+                self.log_message("Disconnected from Teensy")
+            
+            self.status_label.config(text="Disconnected", foreground="red")
+            self.connect_btn.config(text="Connect to Teensy", command=self.connect_serial, state='normal')
+            
+            # Disable control buttons
+            self.reset_btn.config(state='disabled')
+            self.write_btn.config(state='disabled')
+            self.project_btn.config(state='disabled')
+            self.browse_btn.config(state='disabled')
+            self.upload_btn.config(state='disabled')
+            self.play_btn.config(state='disabled')
+            self.pause_btn.config(state='disabled')
+            self.speed_combo.config(state='disabled')
+            
+        except Exception as e:
+            self.log_message(f"Disconnection error: {e}")
+            messagebox.showerror("Disconnection Error", f"Failed to disconnect: {e}")
 
     def send_command(self, cmd, payload_bytes=None):
         """
@@ -361,7 +387,7 @@ class GalvoController:
     def handle_disconnection(self):
         """Handle disconnection from Teensy"""
         self.status_label.config(text="Disconnected", foreground="red")
-        self.connect_btn.config(state='normal')
+        self.connect_btn.config(text="Connect to Teensy", command=self.connect_serial, state='normal')
         
         # Disable all buttons
         for btn in [self.reset_btn, self.write_btn, self.project_btn, 

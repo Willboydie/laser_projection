@@ -1,25 +1,6 @@
 #include <DAC.h>
 #include <SPI.h>
 
-
-void SPITransfer24(uint32_t frame) {
-  SPI.transfer16((frame >> 8) & 0xFFFF);  // Send bits 23-8 (16 bits)
-  SPI.transfer(frame & 0xFF);             // Send bits 7-0 (8 bits)
-}
-
-
-void sendSPICommand(uint32_t frame) {
-  digitalWriteFast(SYNC, LOW);
-  SPITransfer24(frame);
-  digitalWriteFast(SYNC, HIGH);
-}
-
-
-void FAST_DAC_UPDATE(uint16_t A, uint16_t B) {
-  sendSPICommand((0b00011000 << 16) | ((A) & 0xFFFF));
-  sendSPICommand((0b00011001 << 16) | ((B) & 0xFFFF));
-}
-
 // Uses SPI.h
 void initSPIControl() {
     // Initialize SPI with standard library
@@ -58,14 +39,18 @@ void initDAC() {
     delay(100); // Wait for reset to complete
     Serial.println("Software reset complete");
 
+    sendSPICommand(0b001100000000000000000000); // Command 110 (LDAC Asynchronous Mode)
+    delay(100); // Wait for LDAC Asynchronous Mode to complete
+    Serial.println("LDAC Asynchronous Mode enabled");
+
     // Enable internal reference (2.5V) + gain=2 (0-5V range)
     sendSPICommand(0b001110000000000000000001); // Command 111 (enable ref), data=0x0001
     delay(10); // Wait for reference to stabilize
     Serial.println("Internal reference enabled");
 
     delay(100);
-    uint16_t A = 50000;
-    uint16_t B = 25000;
+    uint16_t A = 32768;
+    uint16_t B = 32768;
 
     FAST_DAC_UPDATE(A, B);
     Serial.print("DAC A and B set to ");

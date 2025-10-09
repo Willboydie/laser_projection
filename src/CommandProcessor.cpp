@@ -130,9 +130,7 @@ void CommandProcessor::handlePauseCommand() {
         return;
     }
     
-    bool currentlyProjecting = systemState->isCurrentlyProjecting();
-    
-    if (currentlyProjecting) {
+    if (systemState->isCurrentlyProjecting()) {
         projector->stopProjection();
         systemState->setProjecting(false);
         Serial.println("HIGH-SPEED PLAYBACK: Paused");
@@ -169,7 +167,7 @@ void CommandProcessor::handleResetCommand() {
     initTTL();
 
     // Reinitialize projector
-    projector->init(fileManager, systemState);
+    projector->reset();
 
     Serial.println("Reset complete");
     Serial.println("Status:");
@@ -182,7 +180,7 @@ uint32_t CommandProcessor::calculateDelayUs(uint8_t payload[RECORD_SIZE]) {
     uint8_t freq_KHz_upper = payload[1];
     uint16_t freq_KHz = (freq_KHz_upper << 8) | freq_KHz_lower;
     
-    if (freq_KHz >= 854) {
+    if (freq_KHz >= 200) {
         Serial.println("PLAY: (full speed)");
         return 0;  // No delay for full speed
     } else if (freq_KHz == 0) {

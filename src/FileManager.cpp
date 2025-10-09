@@ -23,10 +23,12 @@ bool FileManager::initialize() {
             return false;
         }
     } else {
+        setFileSize(testFile.size());
         testFile.close();
     }
     
-    setFileSize(testFile.size());
+    Serial.print("File size: ");
+    Serial.println(fileSize);
     return true;
 }
  
@@ -52,6 +54,8 @@ bool FileManager::openForRead() {
     }
     playbackFileOpen = true;
     Serial.println("File opened for read");
+    Serial.print("File size: ");
+    Serial.println(fileSize);
     return true;
 }
 

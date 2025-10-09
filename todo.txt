@@ -1,11 +1,5 @@
 TO DO:
 
-- Projection Code
---- Fix SD card initialisation (allow reset) (also try to diagnose)
---- Issue when buffer size is too high
---- Buffer fails to fill when file is small
---- Fix opening and closing of playback file
-
 LPSPI (Standard SPI):
 The standard SPI library uses the LPSPI peripheral.
 Fact: The official maximum reliable clock speed for LPSPI is 30 MHz. 
