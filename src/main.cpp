@@ -65,26 +65,26 @@ void loop() {
   if ((systemState.getMode() == SystemState::MODE_PROJECT) && systemState.isCurrentlyProjecting()) {
     projector.update();
   }
-  
-  loopCounter++;
-  
+
+  loopCounter = (loopCounter + 1) % 4000000000; // Prevent overflow
+
   // Debug info (less frequent)
-  if ((loopCounter % 2000000 == 0) && (systemState.isCurrentlyProjecting())) {
-    uint32_t elapsedTime = micros() - startTime;
+  // if ((loopCounter % 2000000 == 0) && (systemState.isCurrentlyProjecting())) {
+  //   uint32_t elapsedTime = micros() - startTime;
     
-    Serial.print("Frequency: ");
-    Serial.print(1000000.0 * projector.getPointsProjected() / elapsedTime);  // Convert microseconds to Hz
-    Serial.println(" pps");
-    // Serial.print("Average DMA fill time: ");
-    // Serial.print(projector.getDMACompletionCount() > 0 ? 
-    //     String(projector.getDMAFillTime() / projector.getDMACompletionCount()) : 
-    //     "None Completed");
-    // Serial.println("(μs)");
-    // Serial.println();
+  //   Serial.print("Frequency: ");
+  //   Serial.print(1000000.0 * projector.getPointsProjected() / elapsedTime);  // Convert microseconds to Hz
+  //   Serial.println(" pps");
+  //   // Serial.print("Average DMA fill time: ");
+  //   // Serial.print(projector.getDMACompletionCount() > 0 ? 
+  //   //     String(projector.getDMAFillTime() / projector.getDMACompletionCount()) : 
+  //   //     "None Completed");
+  //   // Serial.println("(μs)");
+  //   // Serial.println();
     
-    loopCounter = 0;
-    startTime = micros();
-    projector.setPointsProjected(0);
-  }
+  //   loopCounter = 0;
+  //   startTime = micros();
+  //   projector.setPointsProjected(0);
+  // }
 }
 

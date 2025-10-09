@@ -131,7 +131,7 @@ public:
     bool rotateBuffers();
     
     // Main projection loop - optimized for 1MHz
-    bool update() {
+    inline bool update() {
         if (!systemState->isCurrentlyProjecting() || !buffersInitialized) return false;
         
         uint32_t currentTime = micros();
@@ -145,7 +145,18 @@ public:
             uint16_t valA = (activeBuffer[offset] << 8) | activeBuffer[offset + 1];
             uint16_t valB = (activeBuffer[offset + 2] << 8) | activeBuffer[offset + 3];
             uint8_t laserState = activeBuffer[offset + 4];
-            
+
+            // Update laser (direct register access)
+            if (laser_on != laserState) {
+                if (laserState) {
+                    digitalWriteFast(LASER_ON, LOW);
+                } else {
+                    digitalWriteFast(LASER_ON, HIGH);
+                }
+                laser_on = laserState;
+                // delayMicroseconds(10); // Small delay to allow laser state to stabilize
+            }
+
             // Update DAC (ultra-fast inline macro)
             FAST_DAC_UPDATE(valA, valB);
             // Serial.print("DAC A: ");
@@ -156,15 +167,7 @@ public:
             // Serial.println(laserState);
             // Serial.println("--------------------------------");
             
-            // Update laser (direct register access)
-            if (laser_on != laserState) {
-                if (laserState) {
-                    digitalWriteFast(LASER_ON, LOW);
-                } else {
-                    digitalWriteFast(LASER_ON, HIGH);
-                }
-                laser_on = laserState;
-            }
+            
             
             activePos++;
             lastUpdateTime = currentTime;

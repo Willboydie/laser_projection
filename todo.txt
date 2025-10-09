@@ -1,5 +1,9 @@
 TO DO:
 
+- Fix laser edge blur.
+- Ask Fraser about touch-sensitive electronics.
+- Adapt for raspberry pi 5.
+
 LPSPI (Standard SPI):
 The standard SPI library uses the LPSPI peripheral.
 Fact: The official maximum reliable clock speed for LPSPI is 30 MHz. 
