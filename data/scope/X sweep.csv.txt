@@ -1,0 +1,6 @@
+Data filename: C:\Users\Will Boyd\Projects\laser_projection\data\scope\X sweep.csv
+Sampling frequency: 120000
+Samples count: 209715
+Data and time: 16/10/2025 17:48:36
+Channels count: 1
+Comment: 

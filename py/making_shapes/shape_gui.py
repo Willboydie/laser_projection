@@ -12,8 +12,8 @@ import os
 # Add paths for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'spherical'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'save'))
-from spherical import toSpherical
-from save import createBinFile
+from spherical import toGalvoSpace, toSpherical
+from save import createBinFile, saveArray
 
 
 class Shape3DGUI:
@@ -24,7 +24,7 @@ class Shape3DGUI:
         
         # Variables for shape parameters
         self.shape_var = tk.StringVar(value="Circle")
-        self.center_x = tk.DoubleVar(value=0.0)
+        self.center_x = tk.DoubleVar(value=1.0)
         self.center_y = tk.DoubleVar(value=0.0)
         self.center_z = tk.DoubleVar(value=0.0)
         self.normal_x = tk.DoubleVar(value=0.0)
@@ -39,7 +39,7 @@ class Shape3DGUI:
         
         # On/Off section parameters
         self.fraction_numerator = tk.IntVar(value=1)
-        self.fraction_denominator = tk.IntVar(value=7)
+        self.fraction_denominator = tk.IntVar(value=2)
         
         # Save parameters
         self.max_angle = tk.DoubleVar(value=0.47)
@@ -132,6 +132,7 @@ class Shape3DGUI:
         
         ttk.Button(button_frame, text="Generate Shape", command=self.generate_shape).pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Save Path", command=self.save_path).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Save Array", command=self.save_array).pack(side=tk.LEFT, padx=5)
         
         # Right panel for 3D visualization
         viz_frame = ttk.LabelFrame(main_frame, text="3D Visualization", padding=10)
@@ -456,12 +457,13 @@ class Shape3DGUI:
             max_volts = self.max_volts.get()
             
             # Convert cartesian path to spherical coordinates
-            spherical_data = []
+            angle_data = []
             for point in self.current_path:
-                spherical_point = toSpherical(point)
-                spherical_data.append(spherical_point)
+                galvo_point = toGalvoSpace(point[0], point[1], point[2], point[3])
+                # galvo_point = toSpherical(point)
+                angle_data.append(galvo_point)
             
-            spherical_data = np.array(spherical_data)
+            angle_data = np.array(angle_data)
             
             # Ask user for save location
             file_path = filedialog.asksaveasfilename(
@@ -475,7 +477,7 @@ class Shape3DGUI:
                 os.makedirs(os.path.dirname(file_path), exist_ok=True)
                 
                 # Save the file using createBinFile
-                bin_data = createBinFile(spherical_data, max_angle, max_volts)
+                bin_data = createBinFile(angle_data, max_angle, max_volts)
                 
                 # Write to user-specified location
                 with open(file_path, 'wb') as f:
@@ -483,12 +485,51 @@ class Shape3DGUI:
                 
                 messagebox.showinfo("Save Successful", 
                                  f"Path saved to:\n{file_path}\n\n"
-                                 f"Points: {len(spherical_data)}\n"
+                                 f"Points: {len(angle_data)}\n"
                                  f"Max Angle: {max_angle}\n"
                                  f"Max Volts: {max_volts}")
                 
         except Exception as e:
             messagebox.showerror("Save Error", f"Error saving path: {str(e)}")
+    
+    def save_array(self):
+        """Save the current path as a numpy array"""
+        if self.current_path is None:
+            messagebox.showwarning("No Path", "Please generate a shape first before saving.")
+            return
+        
+        try:
+            # Ask user for filename
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".npy",
+                filetypes=[("NumPy files", "*.npy"), ("All files", "*.*")],
+                title="Save Array File",
+                initialdir=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'data', 'arrays')
+            )
+            
+            if filename:
+                # Extract just the filename without path
+                filename_only = os.path.basename(filename)
+                
+                # Convert cartesian path to galvo angles
+                # toGalvoSpace returns [a, b, laser_on] when given arrays, so we need to transpose
+                galvo_path = toGalvoSpace(
+                    self.current_path[:, 0], 
+                    self.current_path[:, 1], 
+                    self.current_path[:, 2], 
+                    self.current_path[:, 3]
+                )
+                
+                # Save using saveArray function
+                saved_path = saveArray(galvo_path, filename_only)
+                
+                messagebox.showinfo("Save Successful", 
+                                 f"Array saved to:\n{saved_path}\n\n"
+                                 f"Shape: {galvo_path.shape}\n"
+                                 f"Points: {len(galvo_path)}")
+                
+        except Exception as e:
+            messagebox.showerror("Save Error", f"Error saving array: {str(e)}")
 
 
 def main():
