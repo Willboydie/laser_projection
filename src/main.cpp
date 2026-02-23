@@ -16,7 +16,6 @@ CommandProcessor commandProcessor(&fileManager, &systemState, &projector);
 
 // Command processing variables
 uint8_t cmd;
-uint8_t payload[RECORD_SIZE];
 uint32_t loopCounter = 0;
 
 // ======== SETUP ========
@@ -48,16 +47,15 @@ static uint32_t startTime = micros();
 void loop() {
   // Check for serial commands (less frequently to reduce overhead)
   if (loopCounter % 2000 == 0) {
-    if (Serial.available() >= 6) { // 1 command + 5 payload bytes
+    if (Serial.available() >= 2) { // 1 command + 5 payload bytes
       cmd = Serial.read();
-      
-      // Read payload bytes
-      for (int i = 0; i < 5; i++) {
-        payload[i] = Serial.read();
-      }
-      
+      uint16_t length = CommandProcessor::readLength();
+
+      uint8_t payload[length]; 
+      Serial.readBytes((char*)payload, length);
+
       // Process command
-      commandProcessor.processCommand(cmd, payload);
+      commandProcessor.processCommand(cmd, payload, length);
     }
   }
   
@@ -66,25 +64,25 @@ void loop() {
     projector.update();
   }
 
-  loopCounter = (loopCounter + 1) % 4000000000; // Prevent overflow
+  loopCounter++;
 
   // Debug info (less frequent)
-  // if ((loopCounter % 2000000 == 0) && (systemState.isCurrentlyProjecting())) {
-  //   uint32_t elapsedTime = micros() - startTime;
+  if ((loopCounter % 2000000 == 0) && (systemState.isCurrentlyProjecting())) {
+    uint32_t elapsedTime = micros() - startTime;
     
-  //   Serial.print("Frequency: ");
-  //   Serial.print(1000000.0 * projector.getPointsProjected() / elapsedTime);  // Convert microseconds to Hz
-  //   Serial.println(" pps");
-  //   // Serial.print("Average DMA fill time: ");
-  //   // Serial.print(projector.getDMACompletionCount() > 0 ? 
-  //   //     String(projector.getDMAFillTime() / projector.getDMACompletionCount()) : 
-  //   //     "None Completed");
-  //   // Serial.println("(μs)");
-  //   // Serial.println();
+    Serial.print("Frequency: ");
+    Serial.print(1000000.0 * projector.getPointsProjected() / elapsedTime);  // Convert microseconds to Hz
+    Serial.println(" pps");
+    // Serial.print("Average DMA fill time: ");
+    // Serial.print(projector.getDMACompletionCount() > 0 ? 
+    //     String(projector.getDMAFillTime() / projector.getDMACompletionCount()) : 
+    //     "None Completed");
+    // Serial.println("(μs)");
+    // Serial.println();
     
-  //   loopCounter = 0;
-  //   startTime = micros();
-  //   projector.setPointsProjected(0);
-  // }
+    loopCounter = 0;
+    startTime = micros();
+    projector.setPointsProjected(0);
+  }
 }
 

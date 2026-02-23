@@ -78,18 +78,18 @@ bool FileManager::seekToPosition(uint32_t position) {
     return true;
 }
 
-bool FileManager::writeRecord(const uint8_t* data) {
+bool FileManager::writeRecord(const uint8_t* data, uint16_t length) {
     if (!writeFileOpen) {
         Serial.println("SD ERROR: Write file not open!");
         return false;
     }
     
-    if (writeFile.write(data, RECORD_SIZE) != RECORD_SIZE) {
+    if (writeFile.write(data, length) != length) {
         Serial.println("SD ERROR: Failed to write record!");
         return false;
     }
-    bytesWritten += RECORD_SIZE;
-    fileSize += RECORD_SIZE;
+    bytesWritten += length;
+    fileSize += length;
     return true;
 }
 

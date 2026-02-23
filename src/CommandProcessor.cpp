@@ -11,8 +11,19 @@ CommandProcessor::CommandProcessor(FileManager* fm, SystemState* ss, Projector* 
     // Constructor - just store pointers
 }
 
-void CommandProcessor::processCommand(uint8_t cmd, uint8_t payload[RECORD_SIZE]) {
+
+void CommandProcessor::processCommand(uint8_t cmd, uint8_t* payload, uint16_t length) {
     switch (cmd) {
+        case SAVE_CMD:
+            printCommandInfo(cmd, "SAVE");
+            handleSaveCommand(payload, length);
+            break;
+            
+        case PLAY_CMD:
+            printCommandInfo(cmd, "PLAY");
+            handlePlayCommand(payload, length);
+            break;
+
         case WRITE_CMD:
             printCommandInfo(cmd, "WRITE");
             handleWriteCommand();
@@ -21,16 +32,6 @@ void CommandProcessor::processCommand(uint8_t cmd, uint8_t payload[RECORD_SIZE])
         case PROJECT_CMD:
             printCommandInfo(cmd, "PROJECT");
             handleProjectCommand();
-            break;
-            
-        case SAVE_CMD:
-            // printCommandInfo(cmd, "SAVE");
-            handleSaveCommand(payload);
-            break;
-            
-        case PLAY_CMD:
-            printCommandInfo(cmd, "PLAY");
-            handlePlayCommand(payload);
             break;
             
         case PAUSE_CMD:
@@ -47,6 +48,12 @@ void CommandProcessor::processCommand(uint8_t cmd, uint8_t payload[RECORD_SIZE])
             Serial.print("ERROR: Unknown command 0b");
             Serial.println(cmd, BIN);
     }
+}
+
+uint16_t CommandProcessor::readLength() {
+    uint8_t length[2];
+    Serial.readBytes((char*)length, 2);
+    return static_cast<uint16_t>((length[0] << 8) | length[1]);
 }
 
 
@@ -84,19 +91,19 @@ void CommandProcessor::handleProjectCommand() {
     }
 }
 
-void CommandProcessor::handleSaveCommand(uint8_t payload[RECORD_SIZE]) {
+void CommandProcessor::handleSaveCommand(uint8_t* payload, uint16_t length) {
     if (systemState->getMode() != SystemState::MODE_WRITE) {
         Serial.println("ERROR: Not in WRITE mode");
         return;
     }
     
-    if (!fileManager->writeRecord(payload)) {
+    if (!fileManager->writeRecord(payload, length)) {
        Serial.println("ERROR: Failed to save record");
        return;
     }
 }
 
-void CommandProcessor::handlePlayCommand(uint8_t payload[RECORD_SIZE]) {
+void CommandProcessor::handlePlayCommand(uint8_t* payload, uint16_t length) {
     if (systemState->getMode() != SystemState::MODE_PROJECT) {
         Serial.println("ERROR: Not in PROJECT mode");
         return;
@@ -109,7 +116,7 @@ void CommandProcessor::handlePlayCommand(uint8_t payload[RECORD_SIZE]) {
         }
     
     // Calculate delay
-    uint32_t delayUs = calculateDelayUs(payload);
+    uint32_t delayUs = calculateDelayUs(payload, length);
     systemState->setDelay(delayUs);
     
     // Initialize buffers first, then start projection
@@ -175,7 +182,11 @@ void CommandProcessor::handleResetCommand() {
     Serial.println("--------------------------------");
 }
 
-uint32_t CommandProcessor::calculateDelayUs(uint8_t payload[RECORD_SIZE]) {
+uint32_t CommandProcessor::calculateDelayUs(uint8_t* payload, uint16_t length) {
+    if (length != 2) {
+        Serial.println("ERROR: Invalid payload length for playback speed. Expected 2 bytes, got " + String(length));
+        return 0;
+    }
     uint8_t freq_KHz_lower = payload[0];
     uint8_t freq_KHz_upper = payload[1];
     uint16_t freq_KHz = (freq_KHz_upper << 8) | freq_KHz_lower;

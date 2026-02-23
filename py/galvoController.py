@@ -8,6 +8,8 @@ import os
 # Configuration
 SERIAL_PORT = 'COM4'  # Change to your Teensy's port
 BAUD_RATE = 1152000
+RECORD_SIZE = 5 # uint16_t, uint16_t, uint8_t
+UPLOAD_CHUNK_SIZE = 512
 
 # Command Definitions (8-bit) - must match main.cpp
 WRITE_CMD   = 0b00000001
@@ -210,7 +212,7 @@ class GalvoController:
             self.log_message(f"Disconnection error: {e}")
             messagebox.showerror("Disconnection Error", f"Failed to disconnect: {e}")
 
-    def send_command(self, cmd, payload_bytes=None):
+    def send_command(self, cmd, length, payload_bytes=None):
         """
         Send a 6-byte packet to Teensy
         cmd: 1 byte
@@ -221,24 +223,10 @@ class GalvoController:
             return False
 
         try:
-            if payload_bytes is None:
-                # For commands without payload, send zeros
-                data = bytes([cmd, 0, 0, 0, 0, 0])
-            elif isinstance(payload_bytes, bytes):
-                # If payload is already bytes, use it directly
-                if len(payload_bytes) != 5:
-                    raise ValueError("Payload must be exactly 5 bytes")
-                data = bytes([cmd]) + payload_bytes
+            if length == 0 or payload_bytes is None:
+                data = bytes([cmd]) + length.to_bytes(2, 'big')
             else:
-                # If payload is integer, convert to 5 bytes
-                data = bytes([
-                    cmd,
-                    (payload_bytes >> 32) & 0xFF,
-                    (payload_bytes >> 24) & 0xFF,
-                    (payload_bytes >> 16) & 0xFF,
-                    (payload_bytes >> 8) & 0xFF,
-                    payload_bytes & 0xFF
-                ])
+                data = bytes([cmd]) + length.to_bytes(2, 'big') + payload_bytes
             
             self.ser.write(data)
             self.ser.flush()
@@ -249,7 +237,7 @@ class GalvoController:
 
     def write_mode(self):
         """Switch to WRITE mode"""
-        if self.send_command(WRITE_CMD, None):
+        if self.send_command(WRITE_CMD, 0, None):
             self.log_message("Switched to WRITE mode")
             self.upload_btn.config(state='normal')
             self.play_btn.config(state='disabled')
@@ -258,7 +246,7 @@ class GalvoController:
 
     def project_mode(self):
         """Switch to PROJECT mode"""
-        if self.send_command(PROJECT_CMD, None):
+        if self.send_command(PROJECT_CMD, 0, None):
             self.log_message("Switched to PROJECT mode")
             self.upload_btn.config(state='disabled')
             self.play_btn.config(state='normal')
@@ -267,7 +255,7 @@ class GalvoController:
 
     def reset(self):
         """Reset Teensy"""
-        if self.send_command(RESET_CMD, None):
+        if self.send_command(RESET_CMD, 0, None):
             self.log_message("Reset command sent")
             time.sleep(2)  # Wait for reset to complete
 
@@ -310,33 +298,28 @@ class GalvoController:
             
             with open(self.current_file, 'rb') as f:
                  while True:
-                     # Read 5 bytes at a time (valA, valB, laser_on)
-                     data = f.read(5)
-                     if not data:
-                         break
+                    # Read UPLOAD_CHUNK_SIZE bytes at a time
+                    data = f.read(UPLOAD_CHUNK_SIZE)
+                    if not data:
+                        break
                      
-                     # Only process complete 5-byte records
-                     if len(data) == 5:
-                         # Send SAVE_CMD + 5 bytes of data
-                         packet = bytes([SAVE_CMD]) + data
-                         try:
-                             self.ser.write(packet)
-                             self.ser.flush()  # Ensure data is sent immediately
-                             
-                             bytes_sent += 5
-                             progress = (bytes_sent / file_size) * 100
-                             self.progress_var.set(progress)
-                             self.master.update_idletasks()
-                             
-                             # Small delay to prevent overwhelming the serial buffer
-                             time.sleep(0.00001)
-                         except Exception as e:
-                             self.log_message(f"Error sending packet: {e}")
-                             raise
-                     else:
-                         # Incomplete record at end of file - skip it
-                         self.log_message(f"Warning: Skipping incomplete record ({len(data)} bytes)")
-                         break
+                    # Send SAVE_CMD + UPLOAD_CHUNK_SIZE bytes of data
+                    length = len(data)
+                    packet = bytes([SAVE_CMD]) + length.to_bytes(2, 'big') + data
+                    try:
+                        self.ser.write(packet)
+                        self.ser.flush()  # Ensure data is sent immediately
+                        
+                        bytes_sent += length
+                        progress = (bytes_sent / file_size) * 100
+                        self.progress_var.set(progress)
+                        self.master.update_idletasks()
+                        
+                        # Small delay to prevent overwhelming the serial buffer
+                        time.sleep(0.00001)
+                    except Exception as e:
+                        self.log_message(f"Error sending packet: {e}")
+                        raise
             
             self.progress_var.set(100)
             self.log_message(f"File upload completed: {bytes_sent} bytes sent")
@@ -356,14 +339,15 @@ class GalvoController:
         # Pack freq_KHz as 16-bit: lower 8 bits in first byte, upper 8 bits in second byte
         freq_lower = freq_KHz & 0xFF  # Lower 8 bits
         freq_upper = (freq_KHz >> 8) & 0xFF  # Upper 8 bits
-        payload_bytes = bytes([freq_lower, freq_upper, 0, 0, 0])
-        
-        if self.send_command(PLAY_CMD, payload_bytes):
+        payload_bytes = bytes([freq_lower, freq_upper])
+
+        length = len(payload_bytes)
+        if self.send_command(PLAY_CMD, length, payload_bytes):
             self.log_message(f"Started playback at {selected_speed}")
 
     def pause_command(self):
         """Pause/resume playback"""
-        if self.send_command(PAUSE_CMD, None):
+        if self.send_command(PAUSE_CMD, 0, None):
             self.log_message("Pause/Resume command sent")
 
     def read_serial(self):

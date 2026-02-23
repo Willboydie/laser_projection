@@ -28,9 +28,7 @@ public:
 
     
     // Projection state
-    void setProjecting(bool projecting) { 
-        isProjecting = projecting; 
-    }
+    void setProjecting(bool projecting) { isProjecting = projecting; }
     
     bool isCurrentlyProjecting() const { return isProjecting; }
     

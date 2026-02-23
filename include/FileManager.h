@@ -38,7 +38,7 @@ public:
     
     // Write operations
     bool openForWrite();
-    bool writeRecord(const uint8_t* data);
+    bool writeRecord(const uint8_t* data, uint16_t length);
     uint32_t getBytesWritten() const { return bytesWritten; }
     
     // Read operations

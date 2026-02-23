@@ -15,6 +15,7 @@
 #define PAUSE_CMD    0b00001010
 #define RESET_CMD    0b00001111
 
+
 class CommandProcessor {
 private:
     FileManager* fileManager;
@@ -23,19 +24,20 @@ private:
     
 public:
     CommandProcessor(FileManager* fm, SystemState* ss, Projector* proj);
-    void processCommand(uint8_t cmd, uint8_t payload[RECORD_SIZE]);
-    
+    void processCommand(uint8_t cmd, uint8_t* payload, uint16_t length);
+    static uint16_t readLength();
+
 private:
     // Command handlers
     void handleWriteCommand();
     void handleProjectCommand();
-    void handleSaveCommand(uint8_t payload[RECORD_SIZE]);
-    void handlePlayCommand(uint8_t payload[RECORD_SIZE]);
+    void handleSaveCommand(uint8_t* payload, uint16_t length);
+    void handlePlayCommand(uint8_t* payload, uint16_t length);
     void handlePauseCommand();
     void handleResetCommand();
     
     // Utility functions
-    uint32_t calculateDelayUs(uint8_t payload[RECORD_SIZE]);
+    uint32_t calculateDelayUs(uint8_t* payload, uint16_t length);
     void printCommandInfo(uint8_t cmd, const char* description);
 };
 
