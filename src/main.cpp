@@ -1,84 +1,55 @@
 #include <Arduino.h>
 #include <SPI.h>
-#include <DAC.h>
-#include <TTL.h>
-#include "FileManager.h"
-#include "SystemState.h"
-#include "CommandProcessor.h"
-#include "Projector.h"
-#include "Constants.h"
+#include "../lib/dac_spi/DAC_SPI.hpp"
+#include "../lib/laser/Laser.hpp"
+#include "../lib/file_manager/FileManager.hpp"
+#include "../lib/system_state/SystemState.hpp"
+#include "../lib/interface/Interface.hpp"
+#include "../lib/projector/Projector.hpp"
+#include "../lib/utils/constants.h"
 
-// ======== GLOBALS ========
+
 FileManager fileManager;
 SystemState systemState;
-Projector projector;
-CommandProcessor commandProcessor(&fileManager, &systemState, &projector);
+RotatingBuffer buffer(&fileManager);
+DAC_SPI dacSPI(SYNC, LDAC, CLR);
+Laser laser(LASER_PIN);
+Projector projector(&dacSPI, &laser, &systemState, &buffer);
+Interface interface(&fileManager, &systemState, &projector);
 
-// Command processing variables
-uint8_t cmd;
-uint32_t loopCounter = 0;
 
-// ======== SETUP ========
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(BAUDRATE);
   while (!Serial);
 
-  // Initialize hardware
-  initTTL();
-  initDAC();
-  
-  // Initialize file system
-  if (!fileManager.initialize()) {
+  if (!fileManager.init()) {
     Serial.println("FATAL: File system initialization failed!");
+    return;
   }
-  
-  // Initialize projector with file manager reference
-  projector.init(&fileManager, &systemState);
-  
-  Serial.println("System initialized successfully");
-  systemState.printStatus();
+
+  projector.init();
 }
 
 
-static uint32_t startTime = micros();
 void loop() {
-  // Check for serial commands (less frequently to reduce overhead)
-  if (loopCounter % 2000 == 0) {
-    if (Serial.available() >= 2) { // 1 command + 5 payload bytes
-      cmd = Serial.read();
-      uint16_t length = CommandProcessor::readLength();
 
-      uint8_t payload[length]; 
-      Serial.readBytes((char*)payload, length);
-
-      // Process command
-      commandProcessor.processCommand(cmd, payload, length);
-    }
+  static unsigned long lastCommandTime = 0;
+  if (millis() - lastCommandTime > 2000) {
+    lastCommandTime = millis();
+    interface.listen();
   }
   
-  // Update projector if in project mode
-  if ((systemState.getMode() == SystemState::MODE_PROJECT) && systemState.isCurrentlyProjecting()) {
+  if ((systemState.mode == MODE_PROJECT) && systemState.projecting) {
     projector.update();
   }
 
-  loopCounter++;
-
-  // Debug info (less frequent)
-  if ((loopCounter % 2000000 == 0) && (systemState.isCurrentlyProjecting())) {
-    uint32_t elapsedTime = micros() - startTime;
-    
+  static unsigned long printInterval = 1000;
+  static unsigned long lastPrintTime = 0;
+  if ((millis() - lastPrintTime > printInterval) && (systemState.projecting)) {
     Serial.print("Frequency: ");
-    Serial.print(1000000.0 * projector.getPointsProjected() / elapsedTime);  // Convert microseconds to Hz
+    Serial.print(1000.0 * projector.getPointsProjected() / printInterval);  // Convert microseconds to Hz
     Serial.println(" pps");
-    // Serial.print("Average DMA fill time: ");
-    // Serial.print(projector.getDMACompletionCount() > 0 ? 
-    //     String(projector.getDMAFillTime() / projector.getDMACompletionCount()) : 
-    //     "None Completed");
-    // Serial.println("(μs)");
-    // Serial.println();
-    loopCounter = 0;
-    startTime = micros();
+    lastPrintTime = millis();
     projector.setPointsProjected(0);
   }
 }
-

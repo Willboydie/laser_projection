@@ -1,11 +1,10 @@
-#ifndef COMMANDPROCESSOR_H
-#define COMMANDPROCESSOR_H
+#pragma once
 
 #include <Arduino.h>
-#include "FileManager.h"
-#include "SystemState.h"
-#include "Projector.h"
-#include "Constants.h"
+#include "../file_manager/FileManager.hpp"
+#include "../system_state/SystemState.hpp"
+#include "../projector/Projector.hpp"
+#include "../utils/constants.h"
 
 // Command definitions
 #define SLEEP_CMD  0b11100000
@@ -20,15 +19,16 @@
 #define SEND_STATUS_CMD 0b00001011
 
 
-class CommandProcessor {  
+class Interface {  
 public:
-    CommandProcessor(FileManager* fm, SystemState* ss, Projector* proj);
+    Interface(FileManager& fm, SystemState& ss, Projector& proj);
+    ~Interface() = default;
     void listen();
     
 private:
-    FileManager* fileManager;
-    SystemState* systemState;
-    Projector* projector;
+    FileManager& fileManager;
+    SystemState& systemState;
+    Projector& projector;
 
     void processCommand(uint8_t cmd, uint8_t* payload, uint16_t length);
 
@@ -49,5 +49,3 @@ private:
     void printCommandInfo(uint8_t cmd, const char* description);
     uint16_t readLength();
 };
-
-#endif

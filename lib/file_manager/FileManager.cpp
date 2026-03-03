@@ -1,6 +1,6 @@
-#include "FileManager.h"
+#include "FileManager.hpp"
 
-bool FileManager::initialize() {
+bool FileManager::init() {
     if (!sd.begin(SdioConfig(FIFO_SDIO))) {
         Serial.print("SD begin failed. errCode=");
         Serial.print(sd.card()->errorCode(), HEX);
@@ -27,6 +27,7 @@ bool FileManager::initialize() {
         testFile.close();
     }
     
+    initialised = true;
     Serial.print("File size: ");
     Serial.println(fileSize);
     return true;

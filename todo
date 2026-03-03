@@ -1,9 +1,8 @@
-[1] rewrite system state
-[1] handleSleep
-[2] handleWake
-[3] handleBootloader
-[4] define Start and Stop (and hence restart)
-[5] implement a status update packet
-[6] reconsider responsability over the buffers
-[7] remove projector.stop and .start (projector should only update() when asked by main)
-
+- handleSleep
+- handleWake
+- handleBootloader
+- define Start and Stop
+- RESTART / reset methods
+- implement a status update packet
+- remove projector.stop and .start (projector should only update() when asked by main)
+- Laser pulse
