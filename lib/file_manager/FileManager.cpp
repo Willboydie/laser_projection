@@ -32,6 +32,13 @@ bool FileManager::init() {
     Serial.println(fileSize);
     return true;
 }
+
+void FileManager::deinit() {
+    Serial.println("Deinitializing file manager...");
+    closeAllFiles();
+    initialised = false;
+    Serial.println("File manager deinitialized successfully");
+}
  
 bool FileManager::openForWrite() {
     closeAllFiles();

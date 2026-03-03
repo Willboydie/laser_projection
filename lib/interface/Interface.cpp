@@ -1,9 +1,10 @@
 #include "Interface.hpp"
 
-Interface::Interface(FileManager& fm, SystemState& ss, Projector& proj) 
+Interface::Interface(FileManager& fm, SystemState& ss, Projector& proj, System& sys) 
     : fileManager(fm)
     , systemState(ss)
     , projector(proj) 
+    , system(sys)
     {}
 
 void Interface::listen() {
@@ -32,16 +33,20 @@ void Interface::processCommand(uint8_t cmd, uint8_t* payload, uint16_t length) {
             handleBootloaderCommand();
             break;
 
-        case START_STOP_CMD:
-            handleStartStopCommand();
+        case ENABLE_DISABLE_CMD:
+            handleEnableDisableCommand();
             break;
 
         case RESTART_CMD:
             handleRestartCommand();
             break;        
             
-        case WRITE_PROJECT_CMD:
-            handleWriteProjectCommand();
+        case WRITE_MODE_CMD:
+            handleWriteModeCommand();
+            break;
+
+        case PROJECT_MODE_CMD:
+            handleProjectModeCommand();
             break;
 
         case UPLOAD_CMD:
@@ -68,69 +73,43 @@ void Interface::processCommand(uint8_t cmd, uint8_t* payload, uint16_t length) {
 
 void Interface::handleSleepCommand() {
     Serial.println("Sleeping...");
-    
+    system.sleep();
 }
 
 void Interface::handleWakeCommand() {
     Serial.println("Waking up...");
-    
+    system.wake();
 }
 
 void Interface::handleBootloaderCommand() {
-    Serial.println("Bootloader...");
-    
+    Serial.println("Entering bootloader mode...");
+    system.activateBootloader();
 }
 
-void Interface::handleStartStopCommand() {
-// do things...
+void Interface::handleEnableDisableCommand() {
+    if (systemState.enabled) {
+        system.disable();
+    } else {
+        system.enable();
+    }
 }
 
 void Interface::handleRestartCommand() {
-    Serial.println("Restarting...");
-// do things...
+    system.restart();
 }
 
 
-void Interface::handleWriteProjectCommand() {
-    // Close any open files
-    fileManager.closeAllFiles();
-    // do things ...
+void Interface::handleWriteModeCommand() {
+    system.enterWriteMode();
 }
 
-void Interface::handleWriteCommand() {
-    // Wipe file and open for writing
-    if (fileManager.wipeFile() && fileManager.openForWrite()) {
-        systemState.mode = MODE_WRITE;
-        systemState.projecting = false;
-        Serial.println("Ready to save records");
-    }
-}
-
-void Interface::handleProjectCommand() {
-    // Check file size
-    if (fileManager.getFileSize() < RECORD_SIZE) {
-        Serial.println("ERROR: File too small for playback. Cannot enter project mode.");
-        return;
-        }
-    
-    // Update file size and open for reading
-    if (fileManager.openForRead()) {
-        systemState.mode = MODE_PROJECT;
-        systemState.projecting = false;
-        fileManager.seekToPosition(fileManager.getCurrentPos());
-        
-        if (!projector.initializeBuffers()) {
-            Serial.println("ERROR: Failed to initialize buffers");
-            return;
-        }
-        Serial.println("Ready for playback");  
-    } else {
-        Serial.println("ERROR: Failed to prepare for projection");
-    }
+void Interface::handleProjectModeCommand() {
+    system.enterProjectMode();
 }
 
 
 void Interface::handleUploadCommand(uint8_t* payload, uint16_t length) {
+    if (!systemState.enabled) return;
     if (systemState.mode != MODE_WRITE) {
         Serial.println("ERROR: Not in WRITE mode");
         return;
@@ -143,66 +122,21 @@ void Interface::handleUploadCommand(uint8_t* payload, uint16_t length) {
 }
 
 void Interface::handlePlayPauseCommand() {
-    if (systemState.mode != MODE_PROJECT) {
-        Serial.println("ERROR: Not in PROJECT mode");
-        return;
-    }
-    
-    if (systemState.projecting) {
-        systemState.projecting = false;
-        Serial.println("Projection paused");
-    } else {
-        systemState.projecting = true;
-        Serial.println("Projection started");
-    }
+    system.playPause();
 }
 
 
 void Interface::handleSetPlaybackSpeedCommand(uint8_t* payload, uint16_t length) {
-    // Calculate delay
     uint32_t delayUs = calculateDelayUs(payload, length);
-    systemState->setDelay(delayUs);
-    
-    // do things..
+    projector.setDelay(delayUs);
 }
 
 
 void Interface::handleSendStatusCommand() {
     Serial.println("Sending status...");
-    systemState->printStatus();
+    // do things...
 }
 
-
-// void Interface::handleResetCommand() {
-//     Serial.println("Initiating Reset...");
-    
-//     // Stop projection
-//     projector->stopProjection();
-//     systemState->setProjecting(false);
-    
-//     // Close all files
-//     fileManager->closeAllFiles();
-
-//     // Initialize file system
-//     if (!fileManager->initialize()) {
-//         Serial.println("FATAL: File system initialization failed!");
-//     }
-    
-//     // Reset file position
-//     fileManager->setCurrentPos(0);
-    
-//     // Reinitialize DAC + Laser
-//     initDAC();
-//     initTTL();
-
-//     // Reinitialize projector
-//     projector->reset();
-
-//     Serial.println("Reset complete");
-//     Serial.println("Status:");
-//     systemState->printStatus();
-//     Serial.println("--------------------------------");
-// }
 
 
 // -------------- Utility functions -------------------

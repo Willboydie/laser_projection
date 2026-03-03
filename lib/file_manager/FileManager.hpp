@@ -7,11 +7,12 @@
 
 class FileManager {
 public:
-    FileManager();
+    FileManager() = default;
     ~FileManager() = default;
 
     bool init();
-    
+    void deinit();
+
     // Write operations
     bool openForWrite();
     bool writeRecords(const uint8_t* data, uint16_t length);
@@ -25,8 +26,9 @@ public:
     void closeAllFiles();
 
     bool isInitialised() const { return initialised; }
-    bool isPlaybackFileOpen() const { return playbackFileOpen; }
-    bool isWriteFileOpen() const { return writeFileOpen; }
+    bool playbackFileIsOpen() const { return playbackFileOpen; }
+    bool writeFileIsOpen() const { return writeFileOpen; }
+    
     uint32_t getFileSize() const { return fileSize; }
     uint32_t getBytesWritten() const { return bytesWritten; }
     

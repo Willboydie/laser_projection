@@ -1,9 +1,5 @@
-#include "projector/Projector.hpp"
-#include "system_state/SystemState.hpp"
-#include "buffer/RotatingBuffer.hpp"
-#include "laser/Laser.hpp"
-#include "dac_spi/DAC_SPI.hpp"
-#include "utils/constants.h"
+#include "Projector.hpp"
+
 
 constexpr uint32_t buffer_size = BUFFER_SIZE;
 
@@ -18,9 +14,16 @@ void Projector::init() {
     Serial.println("Initializing projector...");
     dacSPI.init();
     laser.init();
-    buffer.init();
     Serial.println("Projector initialized successfully");
     initialised = true;
+}
+
+void Projector::deinit() {
+    Serial.println("Deinitializing projector...");
+    dacSPI.deinit();
+    laser.deinit();
+    Serial.println("Projector deinitialized successfully");
+    initialised = false;
 }
 
 
@@ -36,7 +39,7 @@ void Projector::update() {
                             (currentTime - lastUpdateTime) : 
                             (0xFFFFFFFF - lastUpdateTime + currentTime + 1);
     
-    if (elapsedTime >= currentDelayUs) {
+    if (elapsedTime >= delayUs) {
         
         uint32_t offset;
         uint16_t valA;

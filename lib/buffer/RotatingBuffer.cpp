@@ -9,10 +9,9 @@ RotatingBuffer::RotatingBuffer(FileManager& _fileManager)
 
 bool RotatingBuffer::init() {
     if (!fileManager.isInitialised()) {
-        Serial.println("ERROR: File manager is not initialized!");
+        Serial.println("ERROR: File manager is not initialised!");
         return false;
     }
-    fileManager.closeAllFiles();
 
     // Update file size and open for reading
     if (fileManager.openForRead()) {
@@ -28,11 +27,11 @@ bool RotatingBuffer::init() {
         Serial.print(filesize);
         Serial.println(" bytes");
     } else {
-        Serial.println("ERROR: Failed to prepare for buffer fill. Buffers not initialized.");
+        Serial.println("ERROR: Failed to prepare for buffer fill. Buffers not initialised.");
         return false;
     }
     
-    Serial.println("Initializing buffer system...");
+    Serial.println("Initializing rotating buffer system...");
     fillingBuffer = bufferA;
     if (!fill()) {
         Serial.println("ERROR: Failed to fill buffer A");
@@ -40,43 +39,36 @@ bool RotatingBuffer::init() {
     }
     Serial.println("Buffer A filled");
     
-    // Fill bufferC (ready)
-    fillingBuffer = bufferC;
-    if (!fill()) {
-        Serial.println("ERROR: Failed to fill buffer C");
-        return false;
-    }
-    Serial.println("Buffer C filled");
-    
-    // Fill bufferB (filling)
-    fillingBuffer = bufferB;
-    if (!fill()) {
-        Serial.println("ERROR: Failed to fill buffer B");
-        return false;
-    }
-    Serial.println("Buffer B filled");
-    
-    initialized = true;
-    Serial.println("Three-buffer system initialized successfully");
+    initialised = true;
+    Serial.println("Rotating buffer system initialised successfully");
     return true;
 }
 
+void RotatingBuffer::deinit() {
+    Serial.println("Deinitialising rotating buffer system...");
+    bufferIdx = 0;
+    clearBuffers();
+    initialised = false;
+    Serial.println("Rotating buffer system deinitialised successfully. User must re-initialise.");
+}
 
-void RotatingBuffer::updateValues(uint32_t* activePos, uint16_t* valA, uint16_t* valB, uint8_t* laserState) {
-    if (!initialized) {
-        Serial.println("ERROR: Buffer system not initialized");
+
+void RotatingBuffer::updateValues(uint16_t* valA, uint16_t* valB, uint8_t* laserState) {
+    if (!initialised) {
+        Serial.println("ERROR: Buffer system not initialised");
         return;
     }
     
-    uint32_t offset = (*activePos << 2) + *activePos; // *5 without multiplication
+    uint32_t offset = (bufferIdx << 2) + bufferIdx; // *5 without multiplication
     *valA = (activeBuffer[offset] << 8) | activeBuffer[offset + 1];
     *valB = (activeBuffer[offset + 2] << 8) | activeBuffer[offset + 3];
     *laserState = activeBuffer[offset + 4];
+    bufferIdx++;
 }
 
 bool RotatingBuffer::fill() {
-    if (!initialized) {
-        Serial.println("ERROR: Buffer system not initialized");
+    if (!initialised) {
+        Serial.println("ERROR: Rotating buffer system not initialised");
         return false;
     }
     size_t bytesRead;
@@ -119,9 +111,17 @@ bool RotatingBuffer::rotate() {
     readyBuffer = oldFill;
     fillingBuffer = oldActive;
 
+    bufferIdx = 0;
+
     if (!fill()) {
         Serial.println("ERROR: Failed to fill buffer");
         return false;
     }
     return true;
+}
+
+void RotatingBuffer::clearBuffers() {
+    memset(bufferA, 0, BUFFER_SIZE * RECORD_SIZE);
+    memset(bufferB, 0, BUFFER_SIZE * RECORD_SIZE);
+    memset(bufferC, 0, BUFFER_SIZE * RECORD_SIZE);
 }

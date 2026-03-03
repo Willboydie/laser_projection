@@ -14,10 +14,12 @@ public:
     Projector(DAC_SPI& dacSPI, Laser& laser, SystemState& ss, RotatingBuffer& _buffer);
     ~Projector() = default;
     void init();
+    void deinit();
     void update();
 
     uint32_t getPointsProjected() const { return pointsProjected; }
     void setPointsProjected(uint32_t points) { pointsProjected = points; }
+    void setDelay(uint32_t _delayUs) { delayUs = _delayUs; }
 
 private:
     DAC_SPI& dacSPI;
@@ -28,7 +30,7 @@ private:
     uint32_t bufferIdx = 0;
     
     uint32_t lastUpdateTime = 0;
-    uint32_t currentDelayUs = 0;
+    uint32_t delayUs = 0;
     uint32_t pointsProjected = 0;
 
     bool initialised = false;

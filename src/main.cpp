@@ -6,28 +6,24 @@
 #include "../lib/system_state/SystemState.hpp"
 #include "../lib/interface/Interface.hpp"
 #include "../lib/projector/Projector.hpp"
+#include "../lib/system/System.hpp"
+#include "../lib/hal/Teensy4HAL.hpp"
 #include "../lib/utils/constants.h"
-
 
 FileManager fileManager;
 SystemState systemState;
-RotatingBuffer buffer(&fileManager);
+RotatingBuffer buffer(fileManager);
 DAC_SPI dacSPI(SYNC, LDAC, CLR);
 Laser laser(LASER_PIN);
-Projector projector(&dacSPI, &laser, &systemState, &buffer);
-Interface interface(&fileManager, &systemState, &projector);
-
+Projector projector(dacSPI, laser, systemState, buffer);
+Teensy4HAL hal;
+System system(fileManager, systemState, buffer, projector, laser, hal);
+Interface interface(fileManager, systemState, projector, system);
 
 void setup() {
   Serial.begin(BAUDRATE);
   while (!Serial);
-
-  if (!fileManager.init()) {
-    Serial.println("FATAL: File system initialization failed!");
-    return;
-  }
-
-  projector.init();
+  system.init();
 }
 
 
@@ -38,16 +34,18 @@ void loop() {
     lastCommandTime = millis();
     interface.listen();
   }
+
+  if (systemState.powerState == POWER_SLEEPING) return;
   
-  if ((systemState.mode == MODE_PROJECT) && systemState.projecting) {
+  if ((systemState.enabled) && (systemState.mode == MODE_PROJECT) && systemState.projecting) {
     projector.update();
   }
 
   static unsigned long printInterval = 1000;
   static unsigned long lastPrintTime = 0;
-  if ((millis() - lastPrintTime > printInterval) && (systemState.projecting)) {
+  if ((millis() - lastPrintTime > printInterval) && (systemState.enabled) && (systemState.projecting)) {
     Serial.print("Frequency: ");
-    Serial.print(1000.0 * projector.getPointsProjected() / printInterval);  // Convert microseconds to Hz
+    Serial.print(1000.0 * projector.getPointsProjected() / printInterval);
     Serial.println(" pps");
     lastPrintTime = millis();
     projector.setPointsProjected(0);

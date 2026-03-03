@@ -1,8 +1,6 @@
-- handleSleep
-- handleWake
-- handleBootloader
-- define Start and Stop
-- RESTART / reset methods
-- implement a status update packet
-- remove projector.stop and .start (projector should only update() when asked by main)
-- Laser pulse
+- Implement a status update packet.
+- Laser pulse routine
+    + laser pulse freq control
+    + laser pulse freq command
+- Think about a serial communication system protocol/code.
+- Think about which commands the raspi needs to send the teensy.

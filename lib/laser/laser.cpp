@@ -1,4 +1,4 @@
-#include "laser/Laser.hpp"
+#include "Laser.hpp"
 
 Laser::Laser(int _laserPin) : laserPin(_laserPin) {}
 
@@ -6,7 +6,7 @@ void Laser::init() {
     Serial.println("Initializing laser TTL...");
     pinMode(laserPin, OUTPUT);
     on();
-    delay(100); // Create blinking effect
+    delay(100); // blinking...
     off();
     delay(100);
     on();
@@ -33,4 +33,10 @@ void Laser::on() {
 void Laser::off() {
     digitalWriteFast(laserPin, HIGH);
     laserOn = false;
+}
+
+void Laser::deinit() {
+    off();
+    pinMode(laserPin, INPUT);
+    Serial.println("Laser deinitialised");
 }
