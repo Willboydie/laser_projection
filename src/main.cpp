@@ -23,11 +23,9 @@ void setup() {
   Serial.begin(115200);
   while (!Serial);
 
-
   // Initialize hardware
   initTTL();
   initDAC();
-
   
   // Initialize file system
   if (!fileManager.initialize()) {
@@ -41,7 +39,6 @@ void setup() {
   systemState.printStatus();
 }
 
-// ======== MAIN LOOP ========
 
 static uint32_t startTime = micros();
 void loop() {
@@ -79,7 +76,6 @@ void loop() {
     //     "None Completed");
     // Serial.println("(μs)");
     // Serial.println();
-    
     loopCounter = 0;
     startTime = micros();
     projector.setPointsProjected(0);

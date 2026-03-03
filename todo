@@ -1,40 +1,9 @@
-TO DO:
-
-- Adapt for raspberry pi 5?
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-- Naive Galvo Space Conversion
---- Find Voltage->Angle mapping (setup test).
-
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-- Path Processing
---- Write variable density sampling algorithm
-
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-- DXF App
---- Remove [2.641e5, 6.9514e5, 0.0]
---- Deal with elevation
---- Deal with paperspace and blocks
---- Deal with unused entities and layers
-
-
-
---------------------------------------------------------------------------------------------------------------------
-NOTE ON TEENSY 4.1 SPI:
-    LPSPI (Standard SPI):
-    The standard SPI library uses the LPSPI peripheral.
-    Fact: The official maximum reliable clock speed for LPSPI is 30 MHz. 
-    Exceeding this risks data errors due to setup/hold time violations.
-    Best Practice (Signal Integrity): 
-    For high-speed SPI, especially with external wiring, add series termination resistors (50-220Ω, 100Ω is common) 
-    on the MOSI, SCK, and CS lines, placed close to the Teensy's pins.
----------------------------------------------------------------------------------------------------------------------
+[1] rewrite system state
+[1] handleSleep
+[2] handleWake
+[3] handleBootloader
+[4] define Start and Stop (and hence restart)
+[5] implement a status update packet
+[6] reconsider responsability over the buffers
+[7] remove projector.stop and .start (projector should only update() when asked by main)
 

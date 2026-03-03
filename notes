@@ -1,0 +1,10 @@
+--------------------------------------------------------------------------------------------------------------------
+NOTE ON TEENSY 4.1 SPI:
+    LPSPI (Standard SPI):
+    The standard SPI library uses the LPSPI peripheral.
+    Fact: The official maximum reliable clock speed for LPSPI is 30 MHz. 
+    Exceeding this risks data errors due to setup/hold time violations.
+    Best Practice (Signal Integrity): 
+    For high-speed SPI, especially with external wiring, add series termination resistors (50-220Ω, 100Ω is common) 
+    on the MOSI, SCK, and CS lines, placed close to the Teensy's pins.
+---------------------------------------------------------------------------------------------------------------------
