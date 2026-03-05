@@ -44,10 +44,8 @@ void Projector::update() {
         uint32_t offset;
         uint16_t valA;
         uint16_t valB;
-        uint8_t laserState;
         buffer.updateValues(&offset, &valA, &valB, &laserState);
-
-        laser.update(&laserState);
+        
         dacSPI.update(valA, valB);
         
         bufferIdx++;
@@ -60,5 +58,7 @@ void Projector::update() {
             bufferIdx = 0;
         }
     }
+
+    laser.update(laserState); // laser updated every loop to achieve pulsing (logic owned by Laser)
     return;
 }

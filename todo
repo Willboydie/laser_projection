@@ -1,5 +1,4 @@
 - Implement a status update packet.
-- Laser pulse routine
     + laser pulse freq control
     + laser pulse freq command
 - Think about a serial communication system protocol/code.

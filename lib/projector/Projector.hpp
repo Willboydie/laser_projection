@@ -33,5 +33,7 @@ private:
     uint32_t delayUs = 0;
     uint32_t pointsProjected = 0;
 
+    bool laserState = false;
+
     bool initialised = false;
 };

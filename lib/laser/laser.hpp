@@ -1,19 +1,23 @@
 #pragma once
 
 #include <Arduino.h>
+#include "../utils/quick_defs.h"
 
 class Laser {
 public:
-    Laser(int _laserPin);
+    Laser(int _laserPin, float initialDutyCycle);
     ~Laser() = default;
     void init();
-    void update(uint8_t* _laserOn);
+    void update(bool laserState);
 
-    void on();
     void off();
-    bool isOn() const { return laserOn; }
+
+    void setDutyCycle(float _dutyCycle);
+    float getDutyCycle() const { return dutyCycle; }
+
 
 private:
     int laserPin;
     bool laserOn = false;
+    float dutyCycle;
 };
