@@ -30,7 +30,8 @@ bool RotatingBuffer::init() {
         Serial.println("ERROR: Failed to prepare for buffer fill. Buffers not initialised.");
         return false;
     }
-    
+
+    initialised = true;
     Serial.println("Initializing rotating buffer system...");
     fillingBuffer = bufferA;
     if (!fill()) {
@@ -38,8 +39,6 @@ bool RotatingBuffer::init() {
         return false;
     }
     Serial.println("Buffer A filled");
-    
-    initialised = true;
     Serial.println("Rotating buffer system initialised successfully");
     return true;
 }

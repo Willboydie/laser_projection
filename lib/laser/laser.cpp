@@ -9,7 +9,6 @@ Laser::Laser(int _laserPin, float initialDutyCycle)
 void Laser::init() {
     Serial.println("Initializing laser TTL...");
     pinMode(laserPin, OUTPUT);
-    digitalWriteFast(laserPin, LOW);
     analogWriteResolution(12);
     analogWriteFrequency(laserPin, DUTY_CYCLE_FREQUENCY);
     laserOn = false;
@@ -35,7 +34,7 @@ void Laser::update(bool laserState) {
         if (!laserOn) { 
             laserOn = true;
         }
-        analogWrite(laserPin, dutyCycle);
+        analogWrite(laserPin, (uint16_t)(dutyCycle * 4095.0f));
     } else {
         if (laserOn) off();
     }

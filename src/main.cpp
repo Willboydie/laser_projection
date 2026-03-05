@@ -10,6 +10,8 @@
 #include "../lib/hal/Teensy4HAL.hpp"
 #include "../lib/utils/constants.h"
 
+#include "laser_test.hpp"
+
 FileManager fileManager;
 SystemState systemState;
 RotatingBuffer buffer(fileManager);
@@ -30,7 +32,7 @@ void setup() {
 void loop() {
 
   static unsigned long lastCommandTime = 0;
-  if (millis() - lastCommandTime > 2000) {
+  if (millis() - lastCommandTime > 50) {
     lastCommandTime = millis();
     interface.listen();
   }
@@ -39,15 +41,6 @@ void loop() {
   
   if ((systemState.enabled) && (systemState.mode == MODE_PROJECT)) {
     projector.update();
-  }
-
-  static unsigned long printInterval = 1000;
-  static unsigned long lastPrintTime = 0;
-  if ((millis() - lastPrintTime > printInterval) && (systemState.enabled) && (systemState.projecting)) {
-    Serial.print("Frequency: ");
-    Serial.print(1000.0 * projector.getPointsProjected() / printInterval);
-    Serial.println(" pps");
-    lastPrintTime = millis();
-    projector.setPointsProjected(0);
+    // laser_test();
   }
 }

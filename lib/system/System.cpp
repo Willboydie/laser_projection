@@ -37,7 +37,8 @@ void System::enterWriteMode() {
         Serial.println("WARNING: Already in WRITE mode!");
         return;
     }
-    if (fileManager.wipeFile() && fileManager.openForWrite()) {
+    if (fileManager.getFileSize() > 0) fileManager.wipeFile();
+    if (fileManager.openForWrite()) {
         systemState.mode = MODE_WRITE;
         systemState.projecting = false;
         Serial.println("Ready to save records");

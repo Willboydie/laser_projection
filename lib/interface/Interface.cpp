@@ -9,7 +9,8 @@ Interface::Interface(FileManager& fm, SystemState& ss, Projector& proj, System& 
     {}
 
 void Interface::listen() {
-    if (Serial.available() >= 2) { // 1 command + 5 payload bytes
+    // Need at least cmd (1) + length (2) bytes; 0-length payload still needs 3 bytes
+    if (Serial.available() >= 3) {
         uint8_t cmd = Serial.read();
         uint16_t length = readLength();
   
@@ -60,6 +61,10 @@ void Interface::processCommand(uint8_t cmd, uint8_t* payload, uint16_t length) {
             
         case SET_PLAYBACK_SPEED_CMD:
             handleSetPlaybackSpeedCommand(payload, length);
+            break;
+        
+        case SET_LASER_DUTY_CYCLE_CMD:
+            handleSetLaserDutyCycleCommand(payload, length);
             break;
             
         case SEND_STATUS_CMD:
@@ -160,7 +165,7 @@ void Interface::handleSendStatusCommand() {
     points_freq_KHz_lower = (uint8_t)(points_frequency_KHz & 0xFF);
     points_freq_KHz_upper = (uint8_t)(points_frequency_KHz >> 8);
 
-    uint8_t statusPacket[8];
+    uint8_t statusPacket[9];
     statusPacket[0] = RECEIVE_STATUS_PACKET_CMD;
     statusPacket[1] = power_state;
     statusPacket[2] = mode;
@@ -170,7 +175,8 @@ void Interface::handleSendStatusCommand() {
     statusPacket[6] = projector_delay;
     statusPacket[7] = points_freq_KHz_lower;
     statusPacket[8] = points_freq_KHz_upper;
-    Serial.write(statusPacket, 8);
+    Serial.write(statusPacket, 9);
+    Serial.flush();
     lastStatusPacketTime = millis();
 }
 
