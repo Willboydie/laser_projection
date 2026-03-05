@@ -53,16 +53,16 @@ void RotatingBuffer::deinit() {
 }
 
 
-void RotatingBuffer::updateValues(uint16_t* valA, uint16_t* valB, uint8_t* laserState) {
+void RotatingBuffer::updateValues(uint16_t& valA, uint16_t& valB, bool& laserState) {
     if (!initialised) {
         Serial.println("ERROR: Buffer system not initialised");
         return;
     }
     
     uint32_t offset = (bufferIdx << 2) + bufferIdx; // *5 without multiplication
-    *valA = (activeBuffer[offset] << 8) | activeBuffer[offset + 1];
-    *valB = (activeBuffer[offset + 2] << 8) | activeBuffer[offset + 3];
-    *laserState = activeBuffer[offset + 4];
+    valA = (activeBuffer[offset] << 8) | activeBuffer[offset + 1];
+    valB = (activeBuffer[offset + 2] << 8) | activeBuffer[offset + 3];
+    laserState = activeBuffer[offset + 4];
     bufferIdx++;
 }
 

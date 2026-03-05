@@ -1,3 +1,5 @@
+#pragma once
+
 #include "../file_manager/FileManager.hpp"
 #include "../utils/constants.h"
 #include <Arduino.h>
@@ -9,7 +11,7 @@ public:
 
     bool init();
     void deinit();
-    void updateValues(uint16_t* valA, uint16_t* valB, uint8_t* laserState);
+    void updateValues(uint16_t& valA, uint16_t& valB, bool& laserState);
     bool rotate();
 
 private:

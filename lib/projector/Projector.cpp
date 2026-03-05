@@ -1,6 +1,5 @@
 #include "Projector.hpp"
 
-
 constexpr uint32_t buffer_size = BUFFER_SIZE;
 
 Projector::Projector(DAC_SPI& dacSPI, Laser& laser,SystemState& ss, RotatingBuffer& _buffer) 
@@ -26,7 +25,6 @@ void Projector::deinit() {
     initialised = false;
 }
 
-
 void Projector::update() {
     if (!systemState.projecting) return;
     if (!initialised) {
@@ -41,10 +39,9 @@ void Projector::update() {
     
     if (elapsedTime >= delayUs) {
         
-        uint32_t offset;
         uint16_t valA;
         uint16_t valB;
-        buffer.updateValues(&offset, &valA, &valB, &laserState);
+        buffer.updateValues(valA, valB, laserState);
         
         dacSPI.update(valA, valB);
         

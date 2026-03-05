@@ -6,15 +6,14 @@ void Teensy4HAL::enterLowPowerMode() {
     // Application-level power savings (disabling projector, laser, file system)
     // are handled by System::sleep() before this is called.
     //
-    // For production use, consider:
-    //   - Reducing CPU clock via set_arm_clock()
-    //   - Gating unused peripheral clocks via CCM registers
-    //   - Using ARM WFI in the idle loop for inter-interrupt savings
+    Serial.println("Entering low power mode...");
+    Serial.flush();     // finish USB transfers
+    asm("dsb");
+    asm("wfi");         // sleep until serial detected
 }
 
 void Teensy4HAL::exitLowPowerMode() {
-    // Restore any hardware-level changes made in enterLowPowerMode().
-    // Currently a no-op since we rely on application-level sleep.
+    Serial.println("CPU waking up...");
 }
 
 void Teensy4HAL::rebootToBootloader() {

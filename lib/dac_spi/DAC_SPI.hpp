@@ -9,6 +9,7 @@ public:
     DAC_SPI(int _syncPin, int _ldacPin, int _clrPin);
     ~DAC_SPI() = default;
     void init();
+    void deinit();
     void update(uint16_t A, uint16_t B);
 
 private:

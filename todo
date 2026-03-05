@@ -1,5 +1,0 @@
-- Implement a status update packet.
-    + laser pulse freq control
-    + laser pulse freq command
-- Think about a serial communication system protocol/code.
-- Think about which commands the raspi needs to send the teensy.

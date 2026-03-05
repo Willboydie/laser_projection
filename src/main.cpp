@@ -14,16 +14,16 @@ FileManager fileManager;
 SystemState systemState;
 RotatingBuffer buffer(fileManager);
 DAC_SPI dacSPI(SYNC, LDAC, CLR);
-Laser laser(LASER_PIN);
+Laser laser(LASER_PIN, INITIAL_LASER_DUTY_CYCLE);
 Projector projector(dacSPI, laser, systemState, buffer);
 Teensy4HAL hal;
-System system(fileManager, systemState, buffer, projector, laser, hal);
-Interface interface(fileManager, systemState, projector, system);
+System sys(fileManager, systemState, buffer, projector, laser, hal);
+Interface interface(fileManager, systemState, projector, sys, laser);
 
 void setup() {
   Serial.begin(BAUDRATE);
   while (!Serial);
-  system.init();
+  sys.init();
 }
 
 
@@ -37,7 +37,7 @@ void loop() {
 
   if (systemState.powerState == POWER_SLEEPING) return;
   
-  if ((systemState.enabled) && (systemState.mode == MODE_PROJECT) && systemState.projecting) {
+  if ((systemState.enabled) && (systemState.mode == MODE_PROJECT)) {
     projector.update();
   }
 

@@ -1,10 +1,11 @@
 #include "Interface.hpp"
 
-Interface::Interface(FileManager& fm, SystemState& ss, Projector& proj, System& sys) 
+Interface::Interface(FileManager& fm, SystemState& ss, Projector& proj, System& sys, Laser& laser) 
     : fileManager(fm)
     , systemState(ss)
     , projector(proj) 
     , system(sys)
+    , laser(laser)
     {}
 
 void Interface::listen() {
@@ -131,10 +132,46 @@ void Interface::handleSetPlaybackSpeedCommand(uint8_t* payload, uint16_t length)
     projector.setDelay(delayUs);
 }
 
+void Interface::handleSetLaserDutyCycleCommand(uint8_t* payload, uint16_t length) {
+    float dutyCycle = calculateDutyCycle(payload, length);
+    laser.setDutyCycle(dutyCycle);
+}
+
 
 void Interface::handleSendStatusCommand() {
-    Serial.println("Sending status...");
-    // do things...
+    uint32_t timeSinceLastStatusPacket = millis() - lastStatusPacketTime;
+    if (timeSinceLastStatusPacket < STATUS_PACKET_INTERVAL) return;
+
+    int8_t power_state = systemState.powerState == POWER_AWAKE ? 1 : 0;
+    int8_t mode = systemState.mode == MODE_WRITE ? 2 : systemState.mode == MODE_PROJECT ? 1 : 0;
+    int8_t enabled = systemState.enabled ? 1 : 0;
+    int8_t projecting = systemState.projecting ? 1 : 0;
+    int8_t laser_duty_cycle = (uint8_t)(laser.getDutyCycle() * 100);
+    int8_t projector_delay = (uint8_t)(projector.getDelay()); // in microseconds
+    uint16_t points_frequency_KHz;
+    uint8_t points_freq_KHz_lower;
+    uint8_t points_freq_KHz_upper;
+
+    if (mode == 1 && enabled && projecting) {
+        points_frequency_KHz = projector.getPointsProjected() / timeSinceLastStatusPacket;
+    } else {
+        points_frequency_KHz = 0;
+    }
+    points_freq_KHz_lower = (uint8_t)(points_frequency_KHz & 0xFF);
+    points_freq_KHz_upper = (uint8_t)(points_frequency_KHz >> 8);
+
+    uint8_t statusPacket[8];
+    statusPacket[0] = RECEIVE_STATUS_PACKET_CMD;
+    statusPacket[1] = power_state;
+    statusPacket[2] = mode;
+    statusPacket[3] = enabled;
+    statusPacket[4] = projecting;
+    statusPacket[5] = laser_duty_cycle;
+    statusPacket[6] = projector_delay;
+    statusPacket[7] = points_freq_KHz_lower;
+    statusPacket[8] = points_freq_KHz_upper;
+    Serial.write(statusPacket, 8);
+    lastStatusPacketTime = millis();
 }
 
 
@@ -167,4 +204,15 @@ uint16_t Interface::readLength() {
     uint8_t length[2];
     Serial.readBytes((char*)length, 2);
     return static_cast<uint16_t>((length[0] << 8) | length[1]);
+}
+
+float Interface::calculateDutyCycle(uint8_t* payload, uint16_t length) {
+    if (length != 2) {
+        Serial.println("ERROR: Invalid payload length for laser duty cycle. Expected 2 bytes, got " + String(length));
+        return 0.0f;
+    }
+    uint8_t dutyCycle_lower = payload[0];
+    uint8_t dutyCycle_upper = payload[1];
+    uint16_t dutyCycle = (dutyCycle_upper << 8) | dutyCycle_lower;
+    return static_cast<float>(dutyCycle) / 100.0f;
 }

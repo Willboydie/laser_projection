@@ -7,6 +7,24 @@ void DAC_SPI::init() {
     initDAC();
 }
 
+void DAC_SPI::deinit() {
+    // Power down DAC A and B
+    sendSPICommand(0b001000000000000000100011); // Command 100 (power down), data=0x0023
+    delay(100); // Wait for power down to complete 
+
+    digitalWriteFast(syncPin, LOW);
+    digitalWriteFast(ldacPin, LOW);
+    digitalWriteFast(clrPin, LOW);
+    pinMode(syncPin, INPUT);
+    pinMode(ldacPin, INPUT);
+    pinMode(clrPin, INPUT);
+
+    SPI.end();
+
+    Serial.println("DAC A and B powered down");
+    Serial.println("SPI deinitialized.");
+}
+
 void DAC_SPI::update(uint16_t A, uint16_t B) {
     digitalWriteFast(ldacPin, LOW);   // Prevent auto-update
     digitalWriteFast(syncPin, LOW);   // Start transaction

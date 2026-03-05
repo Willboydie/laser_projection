@@ -7,7 +7,7 @@
 #include "../utils/constants.h"
 #include "../system/System.hpp"
 
-// Command definitions
+// Incoming commands
 #define SLEEP_CMD  0b11100000
 #define WAKE_CMD  0b11100001
 #define BOOTLOADER_CMD  0b11100010
@@ -18,12 +18,16 @@
 #define UPLOAD_CMD    0b00000001
 #define PLAY_PAUSE_CMD 0b00001001
 #define SET_PLAYBACK_SPEED_CMD 0b00001010
+#define SET_LASER_DUTY_CYCLE_CMD 0b00011011
 #define SEND_STATUS_CMD 0b00001011
+
+// outgoing
+#define RECEIVE_STATUS_PACKET_CMD 0b00011010
 
 
 class Interface {  
 public:
-    Interface(FileManager& fm, SystemState& ss, Projector& proj, System& sys);
+    Interface(FileManager& fm, SystemState& ss, Projector& proj, System& sys, Laser& laser);
     ~Interface() = default;
     void listen();
     
@@ -32,6 +36,7 @@ private:
     SystemState& systemState;
     Projector& projector;
     System& system;
+    Laser& laser;
 
     void processCommand(uint8_t cmd, uint8_t* payload, uint16_t length);
 
@@ -46,10 +51,14 @@ private:
     void handleUploadCommand(uint8_t* payload, uint16_t length);
     void handlePlayPauseCommand();
     void handleSetPlaybackSpeedCommand(uint8_t* payload, uint16_t length);
+    void handleSetLaserDutyCycleCommand(uint8_t* payload, uint16_t length);
     void handleSendStatusCommand();
     
     // Utility functions
     uint32_t calculateDelayUs(uint8_t* payload, uint16_t length);
     void printCommandInfo(uint8_t cmd, const char* description);
     uint16_t readLength();
+    float calculateDutyCycle(uint8_t* payload, uint16_t length);
+
+    uint32_t lastStatusPacketTime = 1;
 };

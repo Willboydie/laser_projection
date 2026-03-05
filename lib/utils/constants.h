@@ -10,6 +10,10 @@
 #define CLR  8
 #define LASER_PIN 7 // Must be a PWM-capable pin
 
-#define BAUDRATE 115200
 #define DUTY_CYCLE_FREQUENCY 16000
+#define INITIAL_LASER_DUTY_CYCLE 0.5f
+
+#define BAUDRATE 115200
+#define STATUS_PACKET_INTERVAL 250 // in milliseconds
+
 #endif

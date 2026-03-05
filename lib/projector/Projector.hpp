@@ -18,6 +18,7 @@ public:
     void update();
 
     uint32_t getPointsProjected() const { return pointsProjected; }
+    uint32_t getDelay() const { return delayUs; }
     void setPointsProjected(uint32_t points) { pointsProjected = points; }
     void setDelay(uint32_t _delayUs) { delayUs = _delayUs; }
 
