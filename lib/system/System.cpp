@@ -80,6 +80,7 @@ void System::playPause() {
     
     if (systemState.projecting) {
         systemState.projecting = false;
+        laser.off();
         Serial.println("Projection paused");
     } else {
         systemState.projecting = true;
@@ -100,6 +101,7 @@ void System::disable() {
 
     systemState.enabled = false;
     systemState.projecting = false;
+    systemState.mode = MODE_READY;
     if (laser.isOn()) laser.off();
     buffer.deinit();
     Serial.println("System Disabled.");
