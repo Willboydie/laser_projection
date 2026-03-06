@@ -399,7 +399,7 @@ class ProjectorUI:
             self.after_id = None
 
     def _poll_status(self):
-        if not self.polling or not self.serial_port or not self.serial_port.is_open:
+        if not self.polling: # or not self.serial_port or not self.serial_port.is_open:
             return
         self._send(SEND_STATUS_CMD, _quiet=True)
         # Give device time to respond, then read and schedule next poll
@@ -446,7 +446,7 @@ class ProjectorUI:
 
     def _read_status_then_poll(self):
         self.after_id = None
-        if not self.polling or not self.serial_port:
+        if not self.polling:#
             return
         try:
             n = self.serial_port.in_waiting

@@ -5,10 +5,11 @@
 
 class Debug {
 public:
-    static void msg(const char* text) {
+    template<typename T>
+    static void msg(const T& text) {
         if (mode) {
             Serial.println(text);
         }
     }
-    static bool mode = DEFAULT_DEBUG_SETTING;
+    static bool mode;
 };

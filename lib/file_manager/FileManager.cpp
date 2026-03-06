@@ -2,10 +2,11 @@
 
 bool FileManager::init() {
     if (!sd.begin(SdioConfig(FIFO_SDIO))) {
-        Debug::msg("SD begin failed. errCode=");
-        Debug::msg(sd.card()->errorCode(), HEX);
-        Debug::msg(" errData=");
-        Debug::msg(sd.card()->errorData(), HEX);
+        Debug::msg("SD begin failed.");
+        // Serial.print(" errCode=");
+        // Serial.println(sd.card()->errorCode(), HEX);
+        // Serial.print(" errData=");
+        // Serial.println(sd.card()->errorData(), HEX);
         return false;
     }
     Debug::msg("SD initialized with SdFat (DMA enabled).");

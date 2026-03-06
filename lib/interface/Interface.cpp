@@ -76,8 +76,7 @@ void Interface::processCommand(uint8_t cmd, uint8_t* payload, uint16_t length) {
             break;
 
         default:
-            Debug::msg("ERROR: Unknown command:");
-            Debug::msg(cmd, BIN);
+            Debug::msg("ERROR: Unknown command");
     }
 }
 
