@@ -10,25 +10,25 @@ Projector::Projector(DAC_SPI& dacSPI, Laser& laser,SystemState& ss, RotatingBuff
 {}
 
 void Projector::init() {
-    Serial.println("Initializing projector...");
+    Debug::msg("Initializing projector...");
     dacSPI.init();
     laser.init();
-    Serial.println("Projector initialized successfully");
+    Debug::msg("Projector initialized successfully");
     initialised = true;
 }
 
 void Projector::deinit() {
-    Serial.println("Deinitializing projector...");
+    Debug::msg("Deinitializing projector...");
     dacSPI.deinit();
     laser.deinit();
-    Serial.println("Projector deinitialized successfully");
+    Debug::msg("Projector deinitialized successfully");
     initialised = false;
 }
 
 void Projector::update() {
     if (!systemState.projecting) return;
     if (!initialised) {
-        Serial.println("ERROR: Projector not initialized");
+        Debug::msg("ERROR: Projector not initialized");
         return;
     }
     

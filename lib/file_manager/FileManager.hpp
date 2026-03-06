@@ -4,6 +4,7 @@
 #include <SdFat.h>
 #include <sdios.h>
 #include "../utils/constants.h"
+#include "../debug/Debug.hpp"
 
 class FileManager {
 public:

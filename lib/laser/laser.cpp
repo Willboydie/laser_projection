@@ -7,12 +7,12 @@ Laser::Laser(int _laserPin, float initialDutyCycle)
 }
 
 void Laser::init() {
-    Serial.println("Initializing laser TTL...");
+    Debug::msg("Initializing laser TTL...");
     pinMode(laserPin, OUTPUT);
     analogWriteResolution(12);
     analogWriteFrequency(laserPin, DUTY_CYCLE_FREQUENCY);
     laserOn = false;
-    Serial.println("Laser initialized successfully");
+    Debug::msg("Laser initialized successfully");
 }
 
 void Laser::setDutyCycle(float _dutyCycle) {
@@ -48,5 +48,5 @@ void Laser::off() {
 void Laser::deinit() {
     off();
     pinMode(laserPin, INPUT);
-    Serial.println("Laser deinitialised");
+    Debug::msg("Laser deinitialised");
 }

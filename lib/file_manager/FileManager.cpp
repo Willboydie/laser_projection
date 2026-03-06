@@ -2,13 +2,13 @@
 
 bool FileManager::init() {
     if (!sd.begin(SdioConfig(FIFO_SDIO))) {
-        Serial.print("SD begin failed. errCode=");
-        Serial.print(sd.card()->errorCode(), HEX);
-        Serial.print(" errData=");
-        Serial.println(sd.card()->errorData(), HEX);
+        Debug::msg("SD begin failed. errCode=");
+        Debug::msg(sd.card()->errorCode(), HEX);
+        Debug::msg(" errData=");
+        Debug::msg(sd.card()->errorData(), HEX);
         return false;
     }
-    Serial.println("SD initialized with SdFat (DMA enabled).");
+    Debug::msg("SD initialized with SdFat (DMA enabled).");
     
     // Create file if it doesn't exist
     FsFile testFile = sd.open(DATA_FILENAME, O_RDONLY);
@@ -17,9 +17,9 @@ bool FileManager::init() {
         testFile = sd.open(DATA_FILENAME, O_WRONLY | O_CREAT);
         if (testFile) {
             testFile.close();
-            Serial.println("Created new data.bin file");
+            Debug::msg("Created new data.bin file");
         } else {
-            Serial.println("SD ERROR: Failed to create data.bin!");
+            Debug::msg("SD ERROR: Failed to create data.bin!");
             return false;
         }
     } else {
@@ -28,28 +28,28 @@ bool FileManager::init() {
     }
     
     initialised = true;
-    Serial.print("File size: ");
-    Serial.println(fileSize);
+    Debug::msg("File size: ");
+    Debug::msg(fileSize);
     return true;
 }
 
 void FileManager::deinit() {
-    Serial.println("Deinitializing file manager...");
+    Debug::msg("Deinitializing file manager...");
     closeAllFiles();
     initialised = false;
-    Serial.println("File manager deinitialized successfully");
+    Debug::msg("File manager deinitialized successfully");
 }
  
 bool FileManager::openForWrite() {
     closeAllFiles();
     writeFile = sd.open(DATA_FILENAME, O_WRONLY | O_CREAT | O_TRUNC);
     if (!writeFile) {
-        Serial.println("SD ERROR: Failed to open for write!");
+        Debug::msg("SD ERROR: Failed to open for write!");
         return false;
     }
     writeFileOpen = true;
     bytesWritten = 0;
-    Serial.println("File opened for write");
+    Debug::msg("File opened for write");
     return true;
 }
 
@@ -57,23 +57,22 @@ bool FileManager::openForRead() {
     closeAllFiles();
     playbackFile = sd.open(DATA_FILENAME, O_RDONLY);
     if (!playbackFile) {
-        Serial.println("SD ERROR: Failed to open for read!");
+        Debug::msg("SD ERROR: Failed to open for read!");
         return false;
     }
     playbackFileOpen = true;
-    Serial.println("File opened for read");
-    Serial.print("File size: ");
-    Serial.println(fileSize);
+    Debug::msg("File opened for read");
+    Debug::msg("File size: " + String(fileSize));
     return true;
 }
 
 bool FileManager::seekToPosition(uint32_t position) {
     if (!playbackFileOpen) {
-        Serial.println("SD ERROR: Playback file not open!");
+        Debug::msg("SD ERROR: Playback file not open!");
         return false;
     }
     if (fileSize == 0) {
-        Serial.println("SD ERROR: Cannot seek in empty file!");
+        Debug::msg("SD ERROR: Cannot seek in empty file!");
         return false;
     }
     
@@ -88,12 +87,12 @@ bool FileManager::seekToPosition(uint32_t position) {
 
 bool FileManager::writeRecords(const uint8_t* data, uint16_t length) {
     if (!writeFileOpen) {
-        Serial.println("SD ERROR: Write file not open!");
+        Debug::msg("SD ERROR: Write file not open!");
         return false;
     }
     
     if (writeFile.write(data, length) != length) {
-        Serial.println("SD ERROR: Failed to write record!");
+        Debug::msg("SD ERROR: Failed to write record!");
         return false;
     }
     bytesWritten += length;
@@ -104,12 +103,12 @@ bool FileManager::writeRecords(const uint8_t* data, uint16_t length) {
 bool FileManager::wipeFile() {
     closeAllFiles();
     if (!sd.remove(DATA_FILENAME)) {
-        Serial.println("SD ERROR: Failed to wipe file!");
+        Debug::msg("SD ERROR: Failed to wipe file!");
         return false;
     }
     fileSize = currentPos = bytesWritten = 0;
     lastSeekPosition = 0xFFFFFFFF;
-    Serial.println("File wiped");
+    Debug::msg("File wiped");
     return true;
 }
 

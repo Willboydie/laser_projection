@@ -11,80 +11,80 @@ System::System(FileManager& fm, SystemState& ss, RotatingBuffer& rb,
     {}
 
 void System::init() {
-    Serial.println("Initializing system...");
+    Debug::msg("Initializing system...");
     if (!fileManager.init()) {
-        Serial.println("FATAL: File system initialisation failed!");
+        Debug::msg("FATAL: File system initialisation failed!");
         return;
     }
     projector.init();
-    Serial.println("System initialized successfully");
+    Debug::msg("System initialized successfully");
 }
 
 void System::deinit() {
-    Serial.println("Deinitializing system...");
+    Debug::msg("Deinitializing system...");
     buffer.deinit();
     projector.deinit();
     fileManager.deinit();
-    Serial.println("System deinitialized successfully");
+    Debug::msg("System deinitialized successfully");
 }
 
 void System::enterWriteMode() {
     if (!systemState.enabled) {
-        Serial.println("ERROR: System is not enabled!");
+        Debug::msg("ERROR: System is not enabled!");
         return;
     }
     if (systemState.mode == MODE_WRITE) {
-        Serial.println("WARNING: Already in WRITE mode!");
+        Debug::msg("WARNING: Already in WRITE mode!");
         return;
     }
     if (fileManager.getFileSize() > 0) fileManager.wipeFile();
     if (fileManager.openForWrite()) {
         systemState.mode = MODE_WRITE;
         systemState.projecting = false;
-        Serial.println("Ready to save records");
+        Debug::msg("Ready to save records");
     }
 }
 
 void System::enterProjectMode() {
     if (!systemState.enabled) {
-        Serial.println("ERROR: System is not enabled!");
+        Debug::msg("ERROR: System is not enabled!");
         return;
     }
     if (systemState.mode == MODE_PROJECT) {
-        Serial.println("WARNING: Already in PROJECT mode!");
+        Debug::msg("WARNING: Already in PROJECT mode!");
         return;
     }
     if (fileManager.getFileSize() < RECORD_SIZE) {
-        Serial.println("ERROR: Too few points in .bin file. Cannot enter project mode.");
+        Debug::msg("ERROR: Too few points in .bin file. Cannot enter project mode.");
         return;
     }
     if (fileManager.openForRead()) {
         systemState.mode = MODE_PROJECT;
         systemState.projecting = false;
         if (!buffer.init()) {
-            Serial.println("ERROR: Failed to initialise rotating buffer");
+            Debug::msg("ERROR: Failed to initialise rotating buffer");
             return;
         }
-        Serial.println("Ready for playback");
+        Debug::msg("Ready for playback");
     } else {
-        Serial.println("ERROR: Failed to prepare for projection");
+        Debug::msg("ERROR: Failed to prepare for projection");
     }
 }
 
 void System::playPause() {
     if (!systemState.enabled) return;
     if (systemState.mode != MODE_PROJECT) {
-        Serial.println("ERROR: Not in PROJECT mode");
+        Debug::msg("ERROR: Not in PROJECT mode");
         return;
     }
     
     if (systemState.projecting) {
         systemState.projecting = false;
         laser.off();
-        Serial.println("Projection paused");
+        Debug::msg("Projection paused");
     } else {
         systemState.projecting = true;
-        Serial.println("Projection started");
+        Debug::msg("Projection started");
     }
 }
 
@@ -93,7 +93,7 @@ void System::enable() {
 
     systemState.enabled = true;
     systemState.mode = MODE_READY;
-    Serial.println("System enabled. Select a WRITE or PROJECT mode to start.");
+    Debug::msg("System enabled. Select a WRITE or PROJECT mode to start.");
 }
 
 void System::disable() {
@@ -104,45 +104,45 @@ void System::disable() {
     systemState.mode = MODE_READY;
     if (laser.isOn()) laser.off();
     buffer.deinit();
-    Serial.println("System Disabled.");
+    Debug::msg("System Disabled.");
 }
 
 void System::restart() {
-    Serial.println("Restarting...");
+    Debug::msg("Restarting...");
     disable();
     deinit();
     init();
-    Serial.println("Restart complete");
+    Debug::msg("Restart complete");
 }
 
 void System::sleep() {
     if (systemState.powerState == POWER_SLEEPING) {
-        Serial.println("WARNING: Already sleeping");
+        Debug::msg("WARNING: Already sleeping");
         return;
     }
 
-    Serial.println("Entering sleep mode...");
+    Debug::msg("Entering sleep mode...");
     disable();
     deinit();
     systemState.powerState = POWER_SLEEPING;
     hal.enterLowPowerMode();
-    Serial.println("System is now sleeping");
+    Debug::msg("System is now sleeping");
 }
 
 void System::wake() {
     if (systemState.powerState != POWER_SLEEPING) {
-        Serial.println("WARNING: System is not sleeping");
+        Debug::msg("WARNING: System is not sleeping");
         return;
     }
 
     hal.exitLowPowerMode();
     systemState.powerState = POWER_AWAKE;
     init();
-    Serial.println("System is awake. Enable to begin.");
+    Debug::msg("System is awake. Enable to begin.");
 }
 
 void System::activateBootloader() {
-    Serial.println("Entering bootloader mode...");
+    Debug::msg("Entering bootloader mode...");
     disable();
     deinit();
     Serial.flush();

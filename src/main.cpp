@@ -10,8 +10,6 @@
 #include "../lib/hal/Teensy4HAL.hpp"
 #include "../lib/utils/constants.h"
 
-#include "laser_test.hpp"
-
 FileManager fileManager;
 SystemState systemState;
 RotatingBuffer buffer(fileManager);
@@ -28,7 +26,6 @@ void setup() {
   sys.init();
 }
 
-
 void loop() {
 
   static unsigned long lastCommandTime = 0;
@@ -41,6 +38,5 @@ void loop() {
   
   if ((systemState.enabled) && (systemState.mode == MODE_PROJECT)) {
     projector.update();
-    // laser_test();
   }
 }

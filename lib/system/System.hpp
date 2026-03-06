@@ -7,6 +7,7 @@
 #include "../projector/Projector.hpp"
 #include "../laser/Laser.hpp"
 #include "../hal/HardwareAbstraction.hpp"
+#include "../debug/Debug.hpp"
 
 class System {
 public:

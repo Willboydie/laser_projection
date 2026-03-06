@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <SPI.h>  // Add SPI library for control functions
 #include "../utils/constants.h"
+#include "../debug/Debug.hpp"
 
 class DAC_SPI {
 public:

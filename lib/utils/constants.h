@@ -16,4 +16,5 @@
 #define BAUDRATE 115200
 #define STATUS_PACKET_INTERVAL 100 // in milliseconds
 
+#define DEFAULT_DEBUG_SETTING false
 #endif

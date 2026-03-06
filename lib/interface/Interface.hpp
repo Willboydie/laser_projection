@@ -6,6 +6,7 @@
 #include "../projector/Projector.hpp"
 #include "../utils/constants.h"
 #include "../system/System.hpp"
+#include "../debug/Debug.hpp"
 
 // Incoming commands
 #define SLEEP_CMD  0b11100000
@@ -20,6 +21,7 @@
 #define SET_PLAYBACK_SPEED_CMD 0b00001010
 #define SET_LASER_DUTY_CYCLE_CMD 0b00011011
 #define SEND_STATUS_CMD 0b00001011
+#define DEBUG_MODE_CMD 0b00011010
 
 // outgoing
 #define RECEIVE_STATUS_PACKET_CMD 0b00011010
@@ -53,6 +55,7 @@ private:
     void handleSetPlaybackSpeedCommand(uint8_t* payload, uint16_t length);
     void handleSetLaserDutyCycleCommand(uint8_t* payload, uint16_t length);
     void handleSendStatusCommand();
+    void handleDebugModeCommand();
     
     // Utility functions
     uint32_t calculateDelayUs(uint8_t* payload, uint16_t length);

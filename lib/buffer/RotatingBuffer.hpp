@@ -2,6 +2,7 @@
 
 #include "../file_manager/FileManager.hpp"
 #include "../utils/constants.h"
+#include "../debug/Debug.hpp"
 #include <Arduino.h>
 
 class RotatingBuffer {

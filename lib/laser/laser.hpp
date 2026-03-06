@@ -1,8 +1,8 @@
 #pragma once
 
 #include <Arduino.h>
-#include "../utils/quick_defs.h"
 #include "../utils/constants.h"
+#include "../debug/Debug.hpp"
 
 class Laser {
 public:

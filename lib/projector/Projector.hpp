@@ -7,6 +7,7 @@
 #include "../utils/constants.h"
 #include "../dac_spi/DAC_SPI.hpp"
 #include "../buffer/RotatingBuffer.hpp"
+#include "../debug/Debug.hpp"
 
 // Three-buffer circular system
 class Projector {

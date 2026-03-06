@@ -9,7 +9,7 @@ RotatingBuffer::RotatingBuffer(FileManager& _fileManager)
 
 bool RotatingBuffer::init() {
     if (!fileManager.isInitialised()) {
-        Serial.println("ERROR: File manager is not initialised!");
+        Debug::msg("ERROR: File manager is not initialised!");
         return false;
     }
 
@@ -20,41 +20,41 @@ bool RotatingBuffer::init() {
         filesize = fileManager.getFileSize();
 
         if (filesize == 0) {
-            Serial.println("ERROR: File size is 0");
+            Debug::msg("ERROR: File size is 0");
             return false;
         }
-        Serial.print("SD file opened for read: ");
-        Serial.print(filesize);
-        Serial.println(" bytes");
+        Debug::msg("SD file opened for read: ");
+        Debug::msg(filesize);
+        Debug::msg(" bytes");
     } else {
-        Serial.println("ERROR: Failed to prepare for buffer fill. Buffers not initialised.");
+        Debug::msg("ERROR: Failed to prepare for buffer fill. Buffers not initialised.");
         return false;
     }
 
     initialised = true;
-    Serial.println("Initializing rotating buffer system...");
+    Debug::msg("Initializing rotating buffer system...");
     fillingBuffer = bufferA;
     if (!fill()) {
-        Serial.println("ERROR: Failed to fill buffer A");
+        Debug::msg("ERROR: Failed to fill buffer A");
         return false;
     }
-    Serial.println("Buffer A filled");
-    Serial.println("Rotating buffer system initialised successfully");
+    Debug::msg("Buffer A filled");
+    Debug::msg("Rotating buffer system initialised successfully");
     return true;
 }
 
 void RotatingBuffer::deinit() {
-    Serial.println("Deinitialising rotating buffer system...");
+    Debug::msg("Deinitialising rotating buffer system...");
     bufferIdx = 0;
     clearBuffers();
     initialised = false;
-    Serial.println("Rotating buffer system deinitialised successfully. User must re-initialise.");
+    Debug::msg("Rotating buffer system deinitialised successfully. User must re-initialise.");
 }
 
 
 void RotatingBuffer::updateValues(uint16_t& valA, uint16_t& valB, bool& laserState) {
     if (!initialised) {
-        Serial.println("ERROR: Buffer system not initialised");
+        Debug::msg("ERROR: Buffer system not initialised");
         return;
     }
     
@@ -67,7 +67,7 @@ void RotatingBuffer::updateValues(uint16_t& valA, uint16_t& valB, bool& laserSta
 
 bool RotatingBuffer::fill() {
     if (!initialised) {
-        Serial.println("ERROR: Rotating buffer system not initialised");
+        Debug::msg("ERROR: Rotating buffer system not initialised");
         return false;
     }
     size_t bytesRead;
@@ -85,7 +85,7 @@ int RotatingBuffer::read(uint8_t* buffer, size_t bytesToRead) {
     // SdFat automatically uses DMA for large reads
     FsFile& file = fileManager.getPlaybackFile();
     if (!file) {
-        Serial.println("ERROR: Failed to open file");
+        Debug::msg("ERROR: Failed to open file");
         return 0;
     }
 
@@ -96,7 +96,7 @@ int RotatingBuffer::read(uint8_t* buffer, size_t bytesToRead) {
         return bytesRead;
 
     } else {
-        Serial.println("ERROR: Failed to read buffer data");
+        Debug::msg("ERROR: Failed to read buffer data");
         return 0;
     }
 }
@@ -113,7 +113,7 @@ bool RotatingBuffer::rotate() {
     bufferIdx = 0;
 
     if (!fill()) {
-        Serial.println("ERROR: Failed to fill buffer");
+        Debug::msg("ERROR: Failed to fill buffer");
         return false;
     }
     return true;

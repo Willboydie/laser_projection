@@ -71,24 +71,28 @@ void Interface::processCommand(uint8_t cmd, uint8_t* payload, uint16_t length) {
             handleSendStatusCommand();
             break;
             
+        case DEBUG_MODE_CMD:
+            handleDebugModeCommand();
+            break;
+
         default:
-            Serial.print("ERROR: Unknown command 0b");
-            Serial.println(cmd, BIN);
+            Debug::msg("ERROR: Unknown command:");
+            Debug::msg(cmd, BIN);
     }
 }
 
 void Interface::handleSleepCommand() {
-    Serial.println("Sleeping...");
+    Debug::msg("Sleeping...");
     system.sleep();
 }
 
 void Interface::handleWakeCommand() {
-    Serial.println("Waking up...");
+    Debug::msg("Waking up...");
     system.wake();
 }
 
 void Interface::handleBootloaderCommand() {
-    Serial.println("Entering bootloader mode...");
+    Debug::msg("Entering bootloader mode...");
     system.activateBootloader();
 }
 
@@ -117,12 +121,12 @@ void Interface::handleProjectModeCommand() {
 void Interface::handleUploadCommand(uint8_t* payload, uint16_t length) {
     if (!systemState.enabled) return;
     if (systemState.mode != MODE_WRITE) {
-        Serial.println("ERROR: Not in WRITE mode");
+        Debug::msg("ERROR: Not in WRITE mode");
         return;
     }
     
     if (!fileManager.writeRecords(payload, length)) {
-       Serial.println("ERROR: Failed to save record");
+       Debug::msg("ERROR: Failed to save record");
        return;
     }
 }
@@ -156,16 +160,18 @@ void Interface::handleSendStatusCommand() {
     uint16_t points_frequency_KHz;
     uint8_t points_freq_KHz_lower;
     uint8_t points_freq_KHz_upper;
+    uint8_t debug_mode = Debug::mode ? 1 : 0;
 
     if (mode == 1 && enabled && projecting) {
         points_frequency_KHz = projector.getPointsProjected() / timeSinceLastStatusPacket;
+        projector.setPointsProjected(0);
     } else {
         points_frequency_KHz = 0;
     }
     points_freq_KHz_lower = (uint8_t)(points_frequency_KHz & 0xFF);
     points_freq_KHz_upper = (uint8_t)(points_frequency_KHz >> 8);
 
-    uint8_t statusPacket[9];
+    uint8_t statusPacket[10];
     statusPacket[0] = RECEIVE_STATUS_PACKET_CMD;
     statusPacket[1] = power_state;
     statusPacket[2] = mode;
@@ -175,17 +181,20 @@ void Interface::handleSendStatusCommand() {
     statusPacket[6] = projector_delay;
     statusPacket[7] = points_freq_KHz_lower;
     statusPacket[8] = points_freq_KHz_upper;
-    Serial.write(statusPacket, 9);
+    statusPacket[9] = debug_mode;
+    Serial.write(statusPacket, 10);
     Serial.flush();
     lastStatusPacketTime = millis();
 }
 
-
+void Interface::handleDebugModeCommand() {
+    Debug::mode = !Debug::mode;
+}
 
 // -------------- Utility functions -------------------
 uint32_t Interface::calculateDelayUs(uint8_t* payload, uint16_t length) {
     if (length != 2) {
-        Serial.println("ERROR: Invalid payload length for playback speed. Expected 2 bytes, got " + String(length));
+        Debug::msg("ERROR: Invalid payload length for playback speed. Expected 2 bytes, got " + String(length));
         return 0;
     }
     uint8_t freq_KHz_lower = payload[0];
@@ -193,16 +202,14 @@ uint32_t Interface::calculateDelayUs(uint8_t* payload, uint16_t length) {
     uint16_t freq_KHz = (freq_KHz_upper << 8) | freq_KHz_lower;
     
     if (freq_KHz >= 200) {
-        Serial.println("PLAY: (full speed)");
+        Debug::msg("PLAY: (full speed)");
         return 0;  // No delay for full speed
-    } else if (freq_KHz == 0) {
-        Serial.println("DEBUG SPEED: 10Hz");
-        return 100000; 
-    } else {
-        Serial.print("PLAY: ");
-        Serial.print(freq_KHz);
-        Serial.println("KHz");
+    } else if (freq_KHz > 0) {
+        Debug::msg("PLAY: " + String(freq_KHz) + "KHz");
         return 1000 / freq_KHz;
+    } else {
+        Debug::msg("ERROR: Invalid playback speed");
+        return 20;
     }
 }
 
@@ -214,7 +221,7 @@ uint16_t Interface::readLength() {
 
 float Interface::calculateDutyCycle(uint8_t* payload, uint16_t length) {
     if (length != 2) {
-        Serial.println("ERROR: Invalid payload length for laser duty cycle. Expected 2 bytes, got " + String(length));
+        Debug::msg("ERROR: Invalid payload length for laser duty cycle. Expected 2 bytes, got " + String(length));
         return 0.0f;
     }
     uint8_t dutyCycle_lower = payload[0];
