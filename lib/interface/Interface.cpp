@@ -170,18 +170,22 @@ void Interface::handleSendStatusCommand() {
     points_freq_KHz_lower = (uint8_t)(points_frequency_KHz & 0xFF);
     points_freq_KHz_upper = (uint8_t)(points_frequency_KHz >> 8);
 
-    uint8_t statusPacket[10];
+    uint8_t statusPacket[11];
+    uint16_t length = 9;
+    uint8_t length_lower = (uint8_t)(length & 0xFF);
+    uint8_t length_upper = (uint8_t)(length >> 8);
     statusPacket[0] = RECEIVE_STATUS_PACKET_CMD;
-    statusPacket[1] = power_state;
-    statusPacket[2] = mode;
-    statusPacket[3] = enabled;
-    statusPacket[4] = projecting;
-    statusPacket[5] = laser_duty_cycle;
-    statusPacket[6] = projector_delay;
-    statusPacket[7] = points_freq_KHz_lower;
-    statusPacket[8] = points_freq_KHz_upper;
-    statusPacket[9] = debug_mode;
-    Serial.write(statusPacket, 10);
+    statusPacket[1] = length_lower;
+    statusPacket[2] = length_upper;
+    statusPacket[3] = power_state;
+    statusPacket[4] = mode;
+    statusPacket[5] = enabled;
+    statusPacket[6] = projecting;
+    statusPacket[7] = laser_duty_cycle;
+    statusPacket[8] = projector_delay;
+    statusPacket[9] = points_freq_KHz_lower;
+    statusPacket[10] = points_freq_KHz_upper;
+    Serial.write(statusPacket, length);
     Serial.flush();
     lastStatusPacketTime = millis();
 }

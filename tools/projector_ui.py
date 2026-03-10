@@ -26,6 +26,7 @@ SET_PLAYBACK_SPEED_CMD = 0b00001010
 SET_LASER_DUTY_CYCLE_CMD = 0b00011011
 SEND_STATUS_CMD = 0b00001011
 RECEIVE_STATUS_PACKET_CMD = 0b00011010
+DEBUG_MODE_CMD = 0b00011010
 
 BAUDRATE = 115200
 STATUS_POLL_INTERVAL_MS = 300
@@ -130,6 +131,12 @@ class ProjectorUI:
             command=lambda: self._send(ENABLE_DISABLE_CMD),
             style="Dark.TButton",
         ).grid(row=0, column=4, padx=2, pady=2)
+        ttk.Button(
+            sys_grid,
+            text="Toggle Debug",
+            command=lambda: self._send(DEBUG_MODE_CMD),
+            style="Dark.TButton",
+        ).grid(row=0, column=5, padx=2, pady=2)
 
         # ---------- Mode ----------
         mode_frame = ttk.LabelFrame(main, text="Mode", style="Dark.TFrame")
@@ -399,7 +406,7 @@ class ProjectorUI:
             self.after_id = None
 
     def _poll_status(self):
-        if not self.polling: # or not self.serial_port or not self.serial_port.is_open:
+        if not self.polling or not self.serial_port or not self.serial_port.is_open:
             return
         self._send(SEND_STATUS_CMD, _quiet=True)
         # Give device time to respond, then read and schedule next poll
@@ -407,7 +414,7 @@ class ProjectorUI:
 
     def _process_serial_buffer(self):
         """Extract binary status packets and ASCII debug lines from _serial_buffer."""
-        STATUS_PACKET_SIZE = 9
+        STATUS_PACKET_SIZE = 10
         buf = self._serial_buffer
         i = 0
         while i < len(buf):
@@ -420,10 +427,11 @@ class ProjectorUI:
                 projecting = "Yes" if data[4] else "No"
                 duty = data[5]
                 delay_us = data[6]
-                freq_khz = data[7] | (data[8] << 8) if len(data) >= 9 else data[7]
+                freq_khz = data[7] | (data[8] << 8)
+                debug_on = "On" if data[9] else "Off"
                 status = (
                     f"Power: {power} | Mode: {mode_str} | Enabled: {enabled} | "
-                    f"Projecting: {projecting} | Duty: {duty}% | Delay: {delay_us}µs | Freq: ~{freq_khz} KHz"
+                    f"Projecting: {projecting} | Duty: {duty}% | Delay: {delay_us}µs | Freq: ~{freq_khz} KHz | Debug: {debug_on}"
                 )
                 if self.root.winfo_exists() and self.live_status.winfo_exists():
                     self.root.after(0, lambda s=status: self._update_live_status(s))
@@ -446,7 +454,7 @@ class ProjectorUI:
 
     def _read_status_then_poll(self):
         self.after_id = None
-        if not self.polling:#
+        if not self.polling:
             return
         try:
             n = self.serial_port.in_waiting

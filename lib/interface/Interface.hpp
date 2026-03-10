@@ -26,7 +26,6 @@
 // outgoing
 #define RECEIVE_STATUS_PACKET_CMD 0b00011010
 
-
 class Interface {  
 public:
     Interface(FileManager& fm, SystemState& ss, Projector& proj, System& sys, Laser& laser);
