@@ -172,8 +172,8 @@ void Interface::handleSendStatusCommand() {
 
     uint8_t statusPacket[11];
     uint16_t length = 9;
-    uint8_t length_lower = (uint8_t)(length & 0xFF);
-    uint8_t length_upper = (uint8_t)(length >> 8);
+    uint8_t length_lower = (uint8_t)(length & 0xFF); // little endian
+    uint8_t length_upper = (uint8_t)(length >> 8); // little endian
     statusPacket[0] = RECEIVE_STATUS_PACKET_CMD;
     statusPacket[1] = length_lower;
     statusPacket[2] = length_upper;
@@ -185,7 +185,7 @@ void Interface::handleSendStatusCommand() {
     statusPacket[8] = projector_delay;
     statusPacket[9] = points_freq_KHz_lower;
     statusPacket[10] = points_freq_KHz_upper;
-    Serial.write(statusPacket, length);
+    Serial.write(statusPacket, length+3);
     Serial.flush();
     lastStatusPacketTime = millis();
 }
@@ -202,7 +202,7 @@ uint32_t Interface::calculateDelayUs(uint8_t* payload, uint16_t length) {
     }
     uint8_t freq_KHz_lower = payload[0];
     uint8_t freq_KHz_upper = payload[1];
-    uint16_t freq_KHz = (freq_KHz_upper << 8) | freq_KHz_lower;
+    uint16_t freq_KHz = (freq_KHz_lower | (freq_KHz_upper << 8)); // little endian
     
     if (freq_KHz >= 200) {
         Debug::msg("PLAY: (full speed)");
@@ -219,7 +219,7 @@ uint32_t Interface::calculateDelayUs(uint8_t* payload, uint16_t length) {
 uint16_t Interface::readLength() {
     uint8_t length[2];
     Serial.readBytes((char*)length, 2);
-    return static_cast<uint16_t>((length[0] << 8) | length[1]);
+    return static_cast<uint16_t>((length[0] | (length[1] << 8))); // little endian
 }
 
 float Interface::calculateDutyCycle(uint8_t* payload, uint16_t length) {
@@ -229,6 +229,6 @@ float Interface::calculateDutyCycle(uint8_t* payload, uint16_t length) {
     }
     uint8_t dutyCycle_lower = payload[0];
     uint8_t dutyCycle_upper = payload[1];
-    uint16_t dutyCycle = (dutyCycle_upper << 8) | dutyCycle_lower;
+    uint16_t dutyCycle = (dutyCycle_lower | (dutyCycle_upper << 8)); // little endian
     return static_cast<float>(dutyCycle) / 100.0f;
 }
