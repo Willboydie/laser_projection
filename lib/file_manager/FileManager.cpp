@@ -86,7 +86,7 @@ bool FileManager::seekToPosition(uint32_t position) {
     return true;
 }
 
-bool FileManager::writeRecords(const uint8_t* data, uint16_t length) {
+bool FileManager::writeRecords(const uint8_t* data, uint32_t length) {
     if (!writeFileOpen) {
         Debug::msg("SD ERROR: Write file not open!");
         return false;

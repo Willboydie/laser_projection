@@ -26,6 +26,7 @@ public:
     void sleep();
     void wake();
     void activateBootloader();
+    void toggleProjectMode();
 
 private:
     FileManager& fileManager;

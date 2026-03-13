@@ -148,3 +148,12 @@ void System::activateBootloader() {
     Serial.flush();
     hal.rebootToBootloader();
 }
+
+void System::toggleProjectMode() {
+    if (systemState.projecting) {
+        Debug::msg("ERROR: Cannot toggle project mode while projecting");
+        return;
+    }
+    systemState.projectMode = systemState.projectMode == PROJECT_MODE_PATH ? PROJECT_MODE_POINT : PROJECT_MODE_PATH;
+    Debug::msg("Project mode toggled to " + String(systemState.projectMode));
+}

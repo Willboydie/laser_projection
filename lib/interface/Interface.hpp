@@ -23,8 +23,11 @@
 #define SEND_STATUS_CMD 0b00001011
 #define DEBUG_MODE_CMD 0b00011010
 
+#define TOGGLE_PROJECT_MODE_CMD 0b00111010
+#define SET_POINT_CMD 0b00111011
+
 // outgoing
-#define RECEIVE_STATUS_PACKET_CMD 0b00011010
+#define RECEIVE_STATUS_PACKET_CMD 0b11111010
 
 class Interface {  
 public:
@@ -39,7 +42,7 @@ private:
     System& system;
     Laser& laser;
 
-    void processCommand(uint8_t cmd, uint8_t* payload, uint16_t length);
+    void processCommand(uint8_t cmd, uint8_t* payload, uint32_t length);
 
     // Command handlers
     void handleSleepCommand();
@@ -49,18 +52,20 @@ private:
     void handleRestartCommand();
     void handleWriteModeCommand();
     void handleProjectModeCommand();
-    void handleUploadCommand(uint8_t* payload, uint16_t length);
+    void handleUploadCommand(uint8_t* payload, uint32_t length);
     void handlePlayPauseCommand();
-    void handleSetPlaybackSpeedCommand(uint8_t* payload, uint16_t length);
-    void handleSetLaserDutyCycleCommand(uint8_t* payload, uint16_t length);
+    void handleSetPlaybackSpeedCommand(uint8_t* payload, uint32_t length);
+    void handleSetLaserDutyCycleCommand(uint8_t* payload, uint32_t length);
     void handleSendStatusCommand();
     void handleDebugModeCommand();
-    
+    void handleToggleProjectModeCommand();
+    void handleSetPointCommand(uint8_t* payload, uint32_t length);
+
     // Utility functions
-    uint32_t calculateDelayUs(uint8_t* payload, uint16_t length);
+    uint32_t calculateDelayUs(uint8_t* payload, uint32_t length);
     void printCommandInfo(uint8_t cmd, const char* description);
     uint16_t readLength();
-    float calculateDutyCycle(uint8_t* payload, uint16_t length);
+    float calculateDutyCycle(uint8_t* payload, uint32_t length);
 
     uint32_t lastStatusPacketTime = 1;
 };

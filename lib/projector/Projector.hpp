@@ -23,11 +23,18 @@ public:
     void setPointsProjected(uint32_t points) { pointsProjected = points; }
     void setDelay(uint32_t _delayUs) { delayUs = _delayUs; }
 
+    void setSetPointX(uint16_t _setPointX) { setPointX = _setPointX; }
+    void setSetPointY(uint16_t _setPointY) { setPointY = _setPointY; }
+
 private:
     DAC_SPI& dacSPI;
     Laser& laser;
     SystemState& systemState;
     RotatingBuffer& buffer;
+
+    // for POINT mode (where specific points are commanded)
+    uint16_t setPointX = 0;
+    uint16_t setPointY = 0;
 
     uint32_t bufferIdx = 0;
     
@@ -36,6 +43,5 @@ private:
     uint32_t pointsProjected = 0;
 
     bool laserState = false;
-
     bool initialised = false;
 };

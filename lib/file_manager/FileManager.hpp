@@ -16,7 +16,7 @@ public:
 
     // Write operations
     bool openForWrite();
-    bool writeRecords(const uint8_t* data, uint16_t length);
+    bool writeRecords(const uint8_t* data, uint32_t length);
     
     // Read operations
     bool openForRead();
@@ -32,7 +32,6 @@ public:
     
     uint32_t getFileSize() const { return fileSize; }
     uint32_t getBytesWritten() const { return bytesWritten; }
-    
 
     bool setFileSize(size_t size) { fileSize = size; return true; }
     void setCurrentPos(uint32_t pos) { currentPos = pos; }

@@ -12,7 +12,7 @@ void Interface::listen() {
     // Need at least cmd (1) + length (2) bytes; 0-length payload still needs 3 bytes
     if (Serial.available() >= 3) {
         uint8_t cmd = Serial.read();
-        uint16_t length = readLength();
+        uint32_t length = readLength();
   
         uint8_t payload[length]; 
         Serial.readBytes((char*)payload, length);
@@ -21,7 +21,7 @@ void Interface::listen() {
       }
 }
 
-void Interface::processCommand(uint8_t cmd, uint8_t* payload, uint16_t length) {
+void Interface::processCommand(uint8_t cmd, uint8_t* payload, uint32_t length) {
     switch (cmd) {
         case SLEEP_CMD:
             handleSleepCommand();
@@ -75,6 +75,14 @@ void Interface::processCommand(uint8_t cmd, uint8_t* payload, uint16_t length) {
             handleDebugModeCommand();
             break;
 
+        case TOGGLE_PROJECT_MODE_CMD:
+            handleToggleProjectModeCommand();
+            break;
+        
+        case SET_POINT_CMD:
+            handleSetPointCommand(payload, length);
+            break;
+
         default:
             Debug::msg("ERROR: Unknown command");
     }
@@ -117,7 +125,7 @@ void Interface::handleProjectModeCommand() {
 }
 
 
-void Interface::handleUploadCommand(uint8_t* payload, uint16_t length) {
+void Interface::handleUploadCommand(uint8_t* payload, uint32_t length) {
     if (!systemState.enabled) return;
     if (systemState.mode != MODE_WRITE) {
         Debug::msg("ERROR: Not in WRITE mode");
@@ -135,14 +143,34 @@ void Interface::handlePlayPauseCommand() {
 }
 
 
-void Interface::handleSetPlaybackSpeedCommand(uint8_t* payload, uint16_t length) {
+void Interface::handleSetPlaybackSpeedCommand(uint8_t* payload, uint32_t length) {
     uint32_t delayUs = calculateDelayUs(payload, length);
     projector.setDelay(delayUs);
 }
 
-void Interface::handleSetLaserDutyCycleCommand(uint8_t* payload, uint16_t length) {
+void Interface::handleSetLaserDutyCycleCommand(uint8_t* payload, uint32_t length) {
     float dutyCycle = calculateDutyCycle(payload, length);
     laser.setDutyCycle(dutyCycle);
+}
+
+
+void Interface::handleDebugModeCommand() {
+    Debug::mode = !Debug::mode;
+}
+
+void Interface::handleToggleProjectModeCommand() {
+    system.toggleProjectMode();
+}
+
+void Interface::handleSetPointCommand(uint8_t* payload, uint32_t length) {
+    if (length != 4) {
+        Debug::msg("ERROR: Invalid payload length for set point. Expected 4 bytes, got " + String(length));
+        return;
+    }
+    uint16_t x = (payload[0] | (payload[1] << 8)); // little endian
+    uint16_t y = (payload[2] | (payload[3] << 8)); // little endian
+    projector.setSetPointX(x);
+    projector.setSetPointY(y);
 }
 
 
@@ -150,16 +178,18 @@ void Interface::handleSendStatusCommand() {
     uint32_t timeSinceLastStatusPacket = millis() - lastStatusPacketTime;
     if (timeSinceLastStatusPacket < STATUS_PACKET_INTERVAL) return;
 
-    int8_t power_state = systemState.powerState == POWER_AWAKE ? 1 : 0;
-    int8_t mode = systemState.mode == MODE_WRITE ? 2 : systemState.mode == MODE_PROJECT ? 1 : 0;
-    int8_t enabled = systemState.enabled ? 1 : 0;
-    int8_t projecting = systemState.projecting ? 1 : 0;
-    int8_t laser_duty_cycle = (uint8_t)(laser.getDutyCycle() * 100);
-    int8_t projector_delay = (uint8_t)(projector.getDelay()); // in microseconds
+    uint8_t power_state = systemState.powerState == POWER_AWAKE ? 1 : 0;
+    uint8_t mode = systemState.mode == MODE_WRITE ? 2 : systemState.mode == MODE_PROJECT ? 1 : 0;
+    uint8_t enabled = systemState.enabled ? 1 : 0;
+    uint8_t projecting = systemState.projecting ? 1 : 0;
+    uint8_t laser_duty_cycle = (uint8_t)(laser.getDutyCycle() * 100);
+    uint8_t projector_delay = (uint8_t)(projector.getDelay()); // in microseconds
     uint16_t points_frequency_KHz;
     uint8_t points_freq_KHz_lower;
     uint8_t points_freq_KHz_upper;
     uint8_t debug_mode = Debug::mode ? 1 : 0;
+    uint32_t file_size = fileManager.getFileSize();
+    uint8_t project_mode = systemState.projectMode == PROJECT_MODE_PATH ? 0 : 1;
 
     if (mode == 1 && enabled && projecting) {
         points_frequency_KHz = projector.getPointsProjected() / timeSinceLastStatusPacket;
@@ -170,13 +200,21 @@ void Interface::handleSendStatusCommand() {
     points_freq_KHz_lower = (uint8_t)(points_frequency_KHz & 0xFF);
     points_freq_KHz_upper = (uint8_t)(points_frequency_KHz >> 8);
 
-    uint8_t statusPacket[11];
-    uint16_t length = 9;
-    uint8_t length_lower = (uint8_t)(length & 0xFF); // little endian
-    uint8_t length_upper = (uint8_t)(length >> 8); // little endian
+    uint16_t payload_length = 14;
+    uint8_t header_length = 3;
+    uint8_t statusPacket[payload_length + header_length];
+
+    uint8_t payload_length_lower = (uint8_t)(payload_length & 0xFF); // little endian
+    uint8_t payload_length_upper = (uint8_t)(payload_length >> 8); // little endian
+
+    uint8_t file_size_lowest = (uint8_t)(file_size & 0xFF);
+    uint8_t file_size_lower = (uint8_t)(file_size >> 8);
+    uint8_t file_size_upper = (uint8_t)(file_size >> 16);
+    uint8_t file_size_highest = (uint8_t)(file_size >> 24);
+    
     statusPacket[0] = RECEIVE_STATUS_PACKET_CMD;
-    statusPacket[1] = length_lower;
-    statusPacket[2] = length_upper;
+    statusPacket[1] = payload_length_lower;
+    statusPacket[2] = payload_length_upper;
     statusPacket[3] = power_state;
     statusPacket[4] = mode;
     statusPacket[5] = enabled;
@@ -185,17 +223,20 @@ void Interface::handleSendStatusCommand() {
     statusPacket[8] = projector_delay;
     statusPacket[9] = points_freq_KHz_lower;
     statusPacket[10] = points_freq_KHz_upper;
-    Serial.write(statusPacket, length+3);
+    statusPacket[11] = file_size_lowest;
+    statusPacket[12] = file_size_lower;
+    statusPacket[13] = file_size_upper;
+    statusPacket[14] = file_size_highest;
+    statusPacket[15] = debug_mode;
+    statusPacket[16] = project_mode;
+    Serial.write(statusPacket, payload_length + header_length);
     Serial.flush();
     lastStatusPacketTime = millis();
 }
 
-void Interface::handleDebugModeCommand() {
-    Debug::mode = !Debug::mode;
-}
 
 // -------------- Utility functions -------------------
-uint32_t Interface::calculateDelayUs(uint8_t* payload, uint16_t length) {
+uint32_t Interface::calculateDelayUs(uint8_t* payload, uint32_t length) {
     if (length != 2) {
         Debug::msg("ERROR: Invalid payload length for playback speed. Expected 2 bytes, got " + String(length));
         return 0;
@@ -222,7 +263,7 @@ uint16_t Interface::readLength() {
     return static_cast<uint16_t>((length[0] | (length[1] << 8))); // little endian
 }
 
-float Interface::calculateDutyCycle(uint8_t* payload, uint16_t length) {
+float Interface::calculateDutyCycle(uint8_t* payload, uint32_t length) {
     if (length != 2) {
         Debug::msg("ERROR: Invalid payload length for laser duty cycle. Expected 2 bytes, got " + String(length));
         return 0.0f;
