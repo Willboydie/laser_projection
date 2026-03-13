@@ -171,6 +171,7 @@ void Interface::handleSetPointCommand(uint8_t* payload, uint32_t length) {
     uint16_t y = (payload[2] | (payload[3] << 8)); // little endian
     projector.setSetPointX(x);
     projector.setSetPointY(y);
+    Debug::msg("Set point: (" + String(x) + ", " + String(y) + ")");
 }
 
 
