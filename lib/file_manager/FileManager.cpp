@@ -98,6 +98,8 @@ bool FileManager::writeRecords(const uint8_t* data, uint32_t length) {
     }
     bytesWritten += length;
     fileSize += length;
+    Debug::msg("Bytes written: " + String(bytesWritten));
+    Debug::msg("File size: " + String(fileSize));
     return true;
 }
 
