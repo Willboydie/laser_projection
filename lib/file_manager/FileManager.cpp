@@ -106,7 +106,7 @@ bool FileManager::writeRecords(const uint8_t* data, uint32_t length) {
 bool FileManager::wipeFile() {
     closeAllFiles();
     if (!sd.remove(DATA_FILENAME)) {
-        Debug::msg("SD ERROR: Failed to wipe file!");
+        Debug::msg("SD ERROR: Failed to wipe files!");
         return false;
     }
     fileSize = currentPos = bytesWritten = 0;
@@ -124,4 +124,67 @@ void FileManager::closeAllFiles() {
         writeFile.close();
         writeFileOpen = false;
     }
+    closeLoopback();
+}
+
+// --- Loopback file operations ---
+
+bool FileManager::openLoopbackForWrite() {
+    closeLoopback();
+    loopbackFile = sd.open(LOOPBACK_FILENAME, O_WRONLY | O_CREAT | O_TRUNC);
+    if (!loopbackFile) {
+        Debug::msg("LOOPBACK: Failed to open loopback.bin for write");
+        return false;
+    }
+    loopbackOpen = true;
+    Debug::msg("LOOPBACK: File opened for write");
+    return true;
+}
+
+bool FileManager::writeLoopback(const uint8_t* data, uint32_t length) {
+    if (!loopbackOpen) {
+        Debug::msg("LOOPBACK: File not open for write");
+        return false;
+    }
+    return loopbackFile.write(data, length) == length;
+}
+
+void FileManager::flushLoopback() {
+    if (loopbackOpen) {
+        loopbackFile.flush();
+    }
+}
+
+uint32_t FileManager::loopbackSize() {
+    if (!loopbackOpen) return 0;
+    return loopbackFile.size();
+}
+
+bool FileManager::openLoopbackForRead() {
+    closeLoopback();
+    loopbackFile = sd.open(LOOPBACK_FILENAME, O_RDONLY);
+    if (!loopbackFile) {
+        Debug::msg("LOOPBACK: Failed to open loopback.bin for read");
+        return false;
+    }
+    loopbackOpen = true;
+    return true;
+}
+
+int FileManager::readLoopback(uint8_t* buffer, size_t length) {
+    if (!loopbackOpen) return -1;
+    return loopbackFile.read(buffer, length);
+}
+
+void FileManager::closeLoopback() {
+    if (loopbackOpen) {
+        loopbackFile.close();
+        loopbackOpen = false;
+    }
+}
+
+void FileManager::wipeLoopback() {
+    closeLoopback();
+    sd.remove(LOOPBACK_FILENAME);
+    Debug::msg("LOOPBACK: File wiped");
 }

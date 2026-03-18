@@ -26,6 +26,8 @@
 #define TOGGLE_PROJECT_MODE_CMD 0b00111010
 #define SET_POINT_CMD 0b00111011
 
+#define TOGGLE_LOOPBACK_CMD 0b00111001
+
 // outgoing
 #define RECEIVE_STATUS_PACKET_CMD 0b11111010
 
@@ -60,7 +62,8 @@ private:
     void handleDebugModeCommand();
     void handleToggleProjectModeCommand();
     void handleSetPointCommand(uint8_t* payload, uint32_t length);
-
+    void handleToggleLoopbackCommand();
+    
     // Utility functions
     uint32_t calculateDelayUs(uint8_t* payload, uint32_t length);
     void printCommandInfo(uint8_t cmd, const char* description);

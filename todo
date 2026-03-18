@@ -1,0 +1,23 @@
+WEIRD DAC OUTPUT
+Find the bug(s) making the DAC output weird. 
+Could it be something to do with
+        - The new data upload method (length + pointer)?
+        - The buffer system?
+        - The SPI itself?
+                - test if the init cmds work by monitoring VREF and trying different initial values.
+        - Floating grounds? Attach the poscope logic GND to the board GND ref.
+ - We can assume that the DAC board is functional but keep using the already proven-good old board. 
+ - Take care of floating grounds.
+ - Make sure to arrive in a position where I can:
+                    1. Generate a shape using shape_gui
+                    2. See the expected signal from the old DAC board on the PoScope.
+ - From there we can move to:
+                    1. The new DAC board, and if that's ok...
+                                                ... we plug in the galvos.
+
+
+SURING UP THE SYSTEM
+If the above debuggin is successful...
+    - Figure out the set point bug and make it better.
+    - Test the new DCDC with the power supply - can it successfully power the raspi?
+    - Write a calibration routine as part of the websockets frontend. Slow increments to allow for comms latency.

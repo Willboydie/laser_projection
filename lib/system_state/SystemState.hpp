@@ -22,6 +22,6 @@ struct SystemState {
     Mode mode = MODE_READY;
     PowerState powerState = POWER_AWAKE;
     ProjectMode projectMode = PROJECT_MODE_PATH;
-    bool enabled = false;
+    bool enabled = true;
     bool projecting = false;
 };

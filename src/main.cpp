@@ -8,6 +8,7 @@
 #include "../lib/projector/Projector.hpp"
 #include "../lib/system/System.hpp"
 #include "../lib/hal/Teensy4HAL.hpp"
+#include "../lib/loopback/LoopBack.hpp"
 #include "../lib/utils/constants.h"
 
 FileManager fileManager;
@@ -15,7 +16,8 @@ SystemState systemState;
 RotatingBuffer buffer(fileManager);
 DAC_SPI dacSPI(SYNC, LDAC, CLR);
 Laser laser(LASER_PIN, INITIAL_LASER_DUTY_CYCLE);
-Projector projector(dacSPI, laser, systemState, buffer);
+LoopBack loopback(fileManager);
+Projector projector(dacSPI, laser, systemState, buffer, loopback);
 Teensy4HAL hal;
 System sys(fileManager, systemState, buffer, projector, laser, hal);
 Interface interface(fileManager, systemState, projector, sys, laser);
@@ -36,7 +38,7 @@ void loop() {
 
   if (systemState.powerState == POWER_SLEEPING) return;
   
-  if ((systemState.enabled) && (systemState.mode == MODE_PROJECT)) {
+  if ((systemState.enabled) && (systemState.mode == MODE_PROJECT) && (systemState.projecting)) {
     projector.update();
   }
 }

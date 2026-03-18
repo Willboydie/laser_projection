@@ -16,5 +16,8 @@
 #define BAUDRATE 115200
 #define STATUS_PACKET_INTERVAL 100 // in milliseconds
 
-#define DEFAULT_DEBUG_SETTING false
+#define DEFAULT_DEBUG_SETTING true
+
+#define LOOPBACK_RECORD_SIZE 4    // 2 bytes X + 2 bytes Y (laser state not on SPI)
+#define LOOPBACK_BUFFER_SIZE 512  // points per write buffer (must be multiple of 512 for SD)
 #endif

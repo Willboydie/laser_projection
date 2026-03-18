@@ -26,6 +26,17 @@ public:
     bool wipeFile();
     void closeAllFiles();
 
+    // Loopback file operations
+    bool openLoopbackForWrite();
+    bool writeLoopback(const uint8_t* data, uint32_t length);
+    void flushLoopback();
+    uint32_t loopbackSize();
+    bool openLoopbackForRead();
+    int readLoopback(uint8_t* buffer, size_t length);
+    void closeLoopback();
+    void wipeLoopback();
+    bool loopbackFileIsOpen() const { return loopbackOpen; }
+
     bool isInitialised() const { return initialised; }
     bool playbackFileIsOpen() const { return playbackFileOpen; }
     bool writeFileIsOpen() const { return writeFileOpen; }
@@ -39,24 +50,23 @@ public:
     uint32_t getCurrentPos() const { return currentPos; }
 
 private:
-    SdFat sd; // (provides DMA support)
+    SdFat sd;
     
-    // Use FsFile with SdFat
     FsFile playbackFile;
     FsFile writeFile;
+    FsFile loopbackFile;
     
-    // File state
     uint32_t fileSize = 0;
     uint32_t currentPos = 0;
     uint32_t bytesWritten = 0;
     bool playbackFileOpen = false;
     bool writeFileOpen = false;
-    
-    // File positioning cache
+    bool loopbackOpen = false;
+
     uint32_t lastSeekPosition = 0xFFFFFFFF;
 
     bool initialised = false;
     
-    // Constants
     static constexpr const char* DATA_FILENAME = "data.bin";
+    static constexpr const char* LOOPBACK_FILENAME = "loopback.bin";
 };

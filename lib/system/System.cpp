@@ -14,10 +14,12 @@ void System::init() {
     Debug::msg("Initializing system...");
     if (!fileManager.init()) {
         Debug::msg("FATAL: File system initialisation failed!");
-        return;
     }
     projector.init();
     Debug::msg("System initialized successfully");
+    systemState.enabled = true;
+    systemState.mode = MODE_READY;
+    Debug::msg("System enabled. Select a WRITE or PROJECT mode to start.");
 }
 
 void System::deinit() {

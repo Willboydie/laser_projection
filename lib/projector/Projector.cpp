@@ -2,11 +2,12 @@
 
 constexpr uint32_t buffer_size = BUFFER_SIZE;
 
-Projector::Projector(DAC_SPI& dacSPI, Laser& laser,SystemState& ss, RotatingBuffer& _buffer) 
+Projector::Projector(DAC_SPI& dacSPI, Laser& laser,SystemState& ss, RotatingBuffer& _buffer, LoopBack& _loopBack) 
 : dacSPI(dacSPI)
 , laser(laser)
 , systemState(ss) 
 , buffer(_buffer)
+, loopBack(_loopBack)
 {}
 
 void Projector::init() {
@@ -42,13 +43,8 @@ void Projector::update() {
         uint16_t valA;
         uint16_t valB;
 
-        if (systemState.projectMode == PROJECT_MODE_POINT) { // POINT mode
-            valA = setPointX;
-            valB = setPointY;
-        } else { // PATH mode
-            buffer.updateValues(valA, valB, laserState);
-            bufferIdx++;
-        }
+        buffer.updateValues(valA, valB, laserState);
+        bufferIdx++;
     
         dacSPI.update(valA, valB);
         pointsProjected++;
@@ -58,6 +54,10 @@ void Projector::update() {
         if (bufferIdx >= buffer_size) {
             buffer.rotate();
             bufferIdx = 0;
+        }
+
+        if (loopBack.isOn()) {
+            loopBack.readNSave();
         }
     }
 

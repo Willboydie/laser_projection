@@ -8,15 +8,19 @@
 #include "../dac_spi/DAC_SPI.hpp"
 #include "../buffer/RotatingBuffer.hpp"
 #include "../debug/Debug.hpp"
+#include "../loopback/LoopBack.hpp"
+
 
 // Three-buffer circular system
 class Projector {
 public:
-    Projector(DAC_SPI& dacSPI, Laser& laser, SystemState& ss, RotatingBuffer& _buffer);
+    Projector(DAC_SPI& dacSPI, Laser& laser, SystemState& ss, RotatingBuffer& _buffer, LoopBack& _loopBack);
     ~Projector() = default;
     void init();
     void deinit();
     void update();
+
+    void toggleLoopBack() { loopBack.toggle(); }
 
     uint32_t getPointsProjected() const { return pointsProjected; }
     uint32_t getDelay() const { return delayUs; }
@@ -31,6 +35,7 @@ private:
     Laser& laser;
     SystemState& systemState;
     RotatingBuffer& buffer;
+    LoopBack& loopBack;
 
     // for POINT mode (where specific points are commanded)
     uint16_t setPointX = 0;
