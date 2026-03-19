@@ -316,7 +316,7 @@ class GalvoController:
 
     def build_log_panel(self, parent):
         log_frame = ttk.LabelFrame(parent, text="Messages", padding=0)
-        log_frame.grid(row=3, column=0, pady=(0, 0), sticky="nsew")
+        log_frame.grid(row=4, column=0, pady=(0, 0), sticky="nsew")
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
 

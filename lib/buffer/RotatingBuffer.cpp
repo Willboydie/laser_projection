@@ -33,12 +33,26 @@ bool RotatingBuffer::init() {
 
     initialised = true;
     Debug::msg("Initializing rotating buffer system...");
+
     fillingBuffer = bufferA;
     if (!fill()) {
         Debug::msg("ERROR: Failed to fill buffer A");
         return false;
     }
-    Debug::msg("Buffer A filled");
+    fillingBuffer = bufferB;
+    if (!fill()) {
+        Debug::msg("ERROR: Failed to fill buffer A");
+        return false;
+    }
+    
+    activeBuffer  = bufferA;  // consumed first
+    readyBuffer   = bufferB;  // consumed second
+    fillingBuffer = bufferC;  // being filled in background
+
+    if (!fill()) {
+        Debug::msg("ERROR: Failed to fill buffer C");
+        return false;
+    }
     Debug::msg("Rotating buffer system initialised successfully");
     return true;
 }

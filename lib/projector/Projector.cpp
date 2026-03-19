@@ -37,14 +37,20 @@ void Projector::update() {
     uint32_t elapsedTime = (currentTime >= lastUpdateTime) ? 
                             (currentTime - lastUpdateTime) : 
                             (0xFFFFFFFF - lastUpdateTime + currentTime + 1);
-    
-    if (elapsedTime >= delayUs) {
 
-        uint16_t valA;
-        uint16_t valB;
+   if (elapsedTime >= delayUs) {
 
-        buffer.updateValues(valA, valB, laserState);
-        bufferIdx++;
+        uint16_t valA = 0;
+        uint16_t valB = 0;
+
+        if (systemState.projectMode == PROJECT_MODE_POINT) {
+            valA = setPointX;
+            valB = setPointY;
+            laserState = true;
+        } else {
+            buffer.updateValues(valA, valB, laserState);
+            bufferIdx++;
+        }
     
         dacSPI.update(valA, valB);
         pointsProjected++;

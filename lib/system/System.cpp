@@ -140,7 +140,7 @@ void System::wake() {
     hal.exitLowPowerMode();
     systemState.powerState = POWER_AWAKE;
     init();
-    Debug::msg("System is awake. Enable to begin.");
+    Debug::msg("System is awake and enabled. Select a WRITE or PROJECT mode to start.");
 }
 
 void System::activateBootloader() {
