@@ -39,6 +39,7 @@ void loop() {
   if (systemState.powerState == POWER_SLEEPING) return;
   
   if ((systemState.enabled) && (systemState.mode == MODE_PROJECT) && (systemState.projecting)) {
+    buffer.fillIfNeeded();
     projector.update();
   }
 }

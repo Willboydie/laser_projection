@@ -84,35 +84,49 @@ bool RotatingBuffer::fill() {
         Debug::msg("ERROR: Rotating buffer system not initialised");
         return false;
     }
-    size_t bytesRead;
-    if (filesize - fileManager.getCurrentPos() > buffer_size * record_size) {
-        bytesRead = read(fillingBuffer, buffer_size * record_size);
-    } else {
-        bytesRead = read(fillingBuffer, filesize - fileManager.getCurrentPos());
-        bytesRead = read(fillingBuffer + bytesRead, buffer_size * record_size - bytesRead);
-    }    
-    return true;
-}
 
-int RotatingBuffer::read(uint8_t* buffer, size_t bytesToRead) {
-
-    // SdFat automatically uses DMA for large reads
     FsFile& file = fileManager.getPlaybackFile();
     if (!file) {
         Debug::msg("ERROR: Failed to open file");
-        return 0;
+        return false;
     }
 
-    size_t bytesRead = file.read(buffer, bytesToRead);
-    if (bytesRead == bytesToRead) {
-        fileManager.setCurrentPos((fileManager.getCurrentPos() + bytesRead) % filesize);
-        fileManager.seekToPosition(fileManager.getCurrentPos());
-        return bytesRead;
+    const size_t totalBytes = buffer_size * record_size;
+    size_t remaining = filesize - fileManager.getCurrentPos();
 
+    if (remaining >= totalBytes) {
+        size_t n = file.read(fillingBuffer, totalBytes);
+        if (n != totalBytes) {
+            Debug::msg("ERROR: Failed to read buffer data");
+            return false;
+        }
+        fileManager.setCurrentPos(fileManager.getCurrentPos() + totalBytes);
     } else {
-        Debug::msg("ERROR: Failed to read buffer data");
-        return 0;
+        size_t n = file.read(fillingBuffer, remaining);
+        if (n != remaining) {
+            Debug::msg("ERROR: Failed to read tail");
+            return false;
+        }
+
+        file.seek(0);
+
+        size_t head = totalBytes - remaining;
+        n = file.read(fillingBuffer + remaining, head);
+        if (n != head) {
+            Debug::msg("ERROR: Failed to read head");
+            return false;
+        }
+        fileManager.setCurrentPos(head);
     }
+
+    return true;
+}
+
+bool RotatingBuffer::fillIfNeeded() {
+    if (!needsFill) return true;
+    if (!fill()) return false;
+    needsFill = false;
+    return true;
 }
 
 bool RotatingBuffer::rotate() {
@@ -125,11 +139,7 @@ bool RotatingBuffer::rotate() {
     fillingBuffer = oldActive;
 
     bufferIdx = 0;
-
-    if (!fill()) {
-        Debug::msg("ERROR: Failed to fill buffer");
-        return false;
-    }
+    needsFill = true;
     return true;
 }
 

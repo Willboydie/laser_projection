@@ -14,12 +14,12 @@ public:
     void deinit();
     void updateValues(uint16_t& valA, uint16_t& valB, bool& laserState);
     bool rotate();
+    bool fillIfNeeded();
 
 private:
     FileManager& fileManager;
     
     bool fill();
-    int read(uint8_t* buffer, size_t bytesToRead);
     void clearBuffers();
 
     // Three buffers aligned to 4 bytes (as required by SdFat)
@@ -42,4 +42,5 @@ private:
     uint32_t bufferIdx = 0;
     uint32_t filesize;
     bool initialised = false;
+    bool needsFill = false;
 };
