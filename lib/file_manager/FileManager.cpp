@@ -1,7 +1,7 @@
 #include "FileManager.hpp"
 
 bool FileManager::init() {
-    if (!sd.begin(SdioConfig(DMA_SDIO))) {
+    if (!sd.begin(SdioConfig(FIFO_SDIO))) {
         Debug::msg("SD begin failed.");
         // Serial.print(" errCode=");
         // Serial.println(sd.card()->errorCode(), HEX);

@@ -1,0 +1,96 @@
+ISR-Based Projection System
+============================
+
+Overview
+--------
+Projection output (DAC + laser) runs inside a hardware timer interrupt (IntervalTimer / PIT).
+The ISR fires at the commanded point rate and preempts all main-loop work, including SD card
+reads. This guarantees jitter-free point output regardless of what the main loop is doing.
+
+
+Architecture
+------------
+
+  IntervalTimer ISR (fires every N us)          main loop()
+  ──────────────────────────────────────         ──────────────────────────────
+  1. Read one point from activeBuffer            1. buffer.fillIfNeeded()
+  2. Write X/Y to DAC via SPI0                      - Refills the next buffer from SD
+  3. Update laser PWM                               - Can block for ~500us; ISR preempts it
+  4. Increment bufferIdx                         2. projector.serviceLoopBack()
+  5. If bufferIdx >= 512:                           - Drains SPI1 slave FIFO
+        rotate() — swap pointers,                3. interface.listen()
+        flag needsFill                              - Serial command processing (every 50ms)
+
+
+Triple Buffer Lifecycle
+-----------------------
+Three 2560-byte buffers (512 points x 5 bytes each): A, B, C.
+
+  Buffer role        Accessed by       Description
+  ─────────────────  ────────────────  ──────────────────────────────────────
+  activeBuffer       ISR               Being consumed, one point per tick
+  readyBuffer        (neither)         Fully filled, waiting for promotion
+  fillingBuffer      Main loop         Being filled from SD by fillIfNeeded()
+
+On rotate() (called from ISR when activeBuffer is exhausted):
+  - old ready    -> new active     (already filled, ready to consume)
+  - old filling  -> new ready      (fill must have completed by now)
+  - old active   -> new filling    (will be filled by main loop next)
+  - needsFill = true
+
+Underrun protection: if needsFill is still true when the ISR needs to rotate, the fill
+didn't complete in time. rotate() resets bufferIdx to 0 and replays the current active
+buffer (brief visual repeat of last 512 points) rather than using a half-filled buffer.
+
+
+Timing Budget (example: 30 kpps)
+---------------------------------
+  Point period:        33 us
+  ISR execution:       ~8-10 us  (SPI transfers + GPIO + PWM write)
+  CPU time for loop:   ~23 us per period
+  Points per buffer:   512
+  Buffer duration:     512 x 33 us = ~17 ms
+  SD fill time:        ~500 us (FIFO_SDIO, 2560 bytes)
+  Fill margin:         17 ms available vs 0.5 ms needed = 34x headroom
+
+
+Bus Independence
+----------------
+  Peripheral          Bus        Used by
+  ──────────────────  ─────────  ──────────────────────
+  SPI0 (LPSPI4)      DAC        ISR — dacSPI.update()
+  USDHC (SDIO)       SD card    Main loop — file.read()
+  SPI1 (LPSPI3)      Loopback   Main loop — readNSave()
+
+No contention: the ISR uses SPI0 exclusively, while SD and loopback use separate
+peripherals. The ISR can preempt an SD read without corruption.
+
+
+ISR Safety Notes
+----------------
+- SPI.transfer16() / SPI.transfer(): blocking register polls, no interrupt use — ISR-safe.
+- analogWrite(): direct FlexPWM register write on Teensy 4.x — ISR-safe.
+- digitalWriteFast(): single GPIO register write — ISR-safe.
+- delayMicroseconds(1): busy-wait (~600 cycles at 600 MHz) — acceptable in short ISR.
+- fill() snapshots fillingBuffer into a local pointer so an ISR mid-fill doesn't redirect
+  the write destination.
+- needsFill and bufferIdx are volatile to ensure visibility between ISR and main loop.
+
+
+Key Functions
+-------------
+  Projector::start()         Starts the IntervalTimer at the commanded period.
+  Projector::stop()          Stops the timer, turns off laser.
+  Projector::setDelay(us)    Updates the timer period on the fly via timer.update().
+  Projector::isr()           Per-point output: buffer read, DAC write, laser, rotate check.
+  Projector::serviceLoopBack()  Main-loop loopback FIFO drain (not in ISR).
+
+  RotatingBuffer::rotate()       Pointer swap + needsFill flag (called from ISR).
+  RotatingBuffer::fillIfNeeded() SD read into fillingBuffer (called from main loop).
+  RotatingBuffer::updateValues() Reads one point from activeBuffer (called from ISR).
+
+
+Minimum Point Period
+--------------------
+The ISR body takes ~8-10 us. MIN_POINT_PERIOD_US is set to 10 us (100 kpps ceiling).
+When delayUs is 0 (full speed), the timer uses MIN_POINT_PERIOD_US as the period.

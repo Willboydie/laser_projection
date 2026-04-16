@@ -16,8 +16,7 @@ SystemState systemState;
 RotatingBuffer buffer(fileManager);
 DAC_SPI dacSPI(SYNC, LDAC, CLR);
 Laser laser(LASER_PIN, INITIAL_LASER_DUTY_CYCLE);
-LoopBack loopback(fileManager);
-Projector projector(dacSPI, laser, systemState, buffer, loopback);
+Projector projector(dacSPI, laser, systemState, buffer);
 Teensy4HAL hal;
 System sys(fileManager, systemState, buffer, projector, laser, hal);
 Interface interface(fileManager, systemState, projector, sys, laser);
@@ -40,6 +39,5 @@ void loop() {
   
   if ((systemState.enabled) && (systemState.mode == MODE_PROJECT) && (systemState.projecting)) {
     buffer.fillIfNeeded();
-    projector.update();
   }
 }

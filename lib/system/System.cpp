@@ -81,11 +81,12 @@ void System::playPause() {
     }
     
     if (systemState.projecting) {
+        projector.stop();
         systemState.projecting = false;
-        laser.off();
         Debug::msg("Projection paused");
     } else {
         systemState.projecting = true;
+        projector.start();
         Debug::msg("Projection started");
     }
 }
@@ -101,6 +102,7 @@ void System::enable() {
 void System::disable() {
     if (!systemState.enabled) return;
 
+    projector.stop();
     systemState.enabled = false;
     systemState.projecting = false;
     systemState.mode = MODE_READY;

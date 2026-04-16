@@ -16,13 +16,14 @@ public:
     bool rotate();
     bool fillIfNeeded();
 
+    volatile uint32_t bufferIdx = 0;
+
 private:
     FileManager& fileManager;
     
     bool fill();
     void clearBuffers();
 
-    // Three buffers aligned to 4 bytes (as required by SdFat)
     __attribute__((aligned(4))) 
     uint8_t bufferA[BUFFER_SIZE * RECORD_SIZE];
     
@@ -35,12 +36,8 @@ private:
     uint8_t* activeBuffer = bufferA;
     uint8_t* fillingBuffer = bufferB;
     uint8_t* readyBuffer = bufferC;
-    uint8_t* oldActive;
-    uint8_t* oldReady;
-    uint8_t* oldFill;
 
-    uint32_t bufferIdx = 0;
     uint32_t filesize;
     bool initialised = false;
-    bool needsFill = false;
+    volatile bool needsFill = false;
 };

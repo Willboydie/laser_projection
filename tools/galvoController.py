@@ -1,6 +1,4 @@
-import json
 import os
-import struct
 import threading
 import time
 import tkinter as tk
@@ -8,10 +6,9 @@ from tkinter import filedialog, messagebox, ttk
 
 import serial
 from serial.tools import list_ports
-import matplotlib.pyplot as plt
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-DEFAULT_PORT = "COM4"
+DEFAULT_PORT = "COM3"
 BAUD_RATE = 115200
 UPLOAD_CHUNK_SIZE = 512
 STATUS_PAYLOAD_LENGTH = 14
@@ -30,16 +27,12 @@ SET_PLAYBACK_SPEED_CMD = 0b00001010
 SET_LASER_DUTY_CYCLE_CMD = 0b00011011
 SEND_STATUS_CMD = 0b00001011
 DEBUG_MODE_CMD = 0b00011010
-TOGGLE_LOOPBACK_CMD = 0b00111001
 TOGGLE_PROJECT_MODE_CMD = 0b00111010
 SET_POINT_CMD = 0b00111011
 
 # Interface output packet types
 RECEIVE_STATUS_PACKET_CMD = 0b11111010
-LOOPBACK_DATA_CMD = 0b11111011
 DEBUG_CMD = 0b11111111
-DEBUG_LOG_PATH = os.path.join(PROJECT_ROOT, "debug-b42dc2.log")
-DEBUG_SESSION_ID = "b42dc2"
 
 
 class GalvoController:
@@ -53,10 +46,9 @@ class GalvoController:
         self.current_file = None
         self.status_poll_job = None
         self.upload_in_progress = False
-        self.loopback_enabled = False
 
         self.port_var = tk.StringVar(value=DEFAULT_PORT)
-        self.speed_var = tk.StringVar(value="100 KHz")
+        self.speed_var = tk.StringVar(value="10K")
         self.laser_duty_var = tk.DoubleVar(value=50.0)
         self.point_x_var = tk.IntVar(value=0)
         self.point_y_var = tk.IntVar(value=0)
@@ -76,43 +68,24 @@ class GalvoController:
         }
 
         self.speed_options = {
-            "200 KHz": 200,
-            "175 KHz": 175,
-            "150 KHz": 150,
-            "125 KHz": 125,
-            "100 KHz": 100,
-            "75 KHz": 75,
-            "50 KHz": 50,
-            "25 KHz": 25,
-            "10 KHz": 10,
-            "1 KHz": 1,
+            "1k": 1,
+            "2K": 2,
+            "5K": 5,
+            "10K": 10,
+            "15K": 15,
+            "20K": 20,
+            "25K": 25,
+            "30K": 30,
+            "35K": 35,
+            "40K": 40,
         }
 
         self.action_buttons = []
-        self.default_loopback_bg = None
-        self.loopback_fig = None
-        self.loopback_ax = None
 
         self.setup_ui()
         self.refresh_ports()
         self.update_connection_state(False)
         self.master.protocol("WM_DELETE_WINDOW", self.on_close)
-
-    def debug_log(self, hypothesis_id, location, message, data):
-        payload = {
-            "sessionId": DEBUG_SESSION_ID,
-            "runId": "pre-fix",
-            "hypothesisId": hypothesis_id,
-            "location": location,
-            "message": message,
-            "data": data,
-            "timestamp": int(time.time() * 1000),
-        }
-        try:
-            with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as handle:
-                handle.write(json.dumps(payload) + "\n")
-        except OSError:
-            pass
 
     def setup_ui(self):
         self.master.columnconfigure(0, weight=1)
@@ -146,16 +119,13 @@ class GalvoController:
         self.system_tab = ttk.Frame(notebook, padding=10)
         self.projection_tab = ttk.Frame(notebook, padding=10)
         self.status_tab = ttk.Frame(notebook, padding=10)
-        self.loopback_tab = ttk.Frame(notebook, padding=10)
         notebook.add(self.system_tab, text="System")
         notebook.add(self.projection_tab, text="Projection")
         notebook.add(self.status_tab, text="Status")
-        notebook.add(self.loopback_tab, text="Loopback")
 
         self.build_system_tab()
         self.build_projection_tab()
         self.build_status_tab()
-        self.build_loopback_tab()
         self.build_log_panel(main_frame)
 
     def build_system_tab(self):
@@ -211,12 +181,6 @@ class GalvoController:
         playback_frame = ttk.LabelFrame(self.projection_tab, text="Playback", padding=10)
         playback_frame.grid(row=2, column=0, pady=(10, 0), padx=(0, 5), sticky="nsew")
         playback_frame.columnconfigure(1, weight=1)
-
-        self.loopback_btn = tk.Button(playback_frame, text="Loopback", command=self.toggle_loopback)
-        self.loopback_btn.grid(row=1, column=2, columnspan=1, padx=4, pady=4, sticky="ew")
-        self.default_loopback_bg = self.loopback_btn.cget("background")
-        self.action_buttons.append(self.loopback_btn)
-        self.update_loopback_button()
 
         ttk.Label(playback_frame, text="Speed").grid(row=0, column=0, padx=(0, 6), sticky="w")
         self.speed_combo = ttk.Combobox(
@@ -289,14 +253,6 @@ class GalvoController:
             column_offset = (index % 2) * 2
             ttk.Label(status_frame, text=label_text).grid(row=row, column=column_offset, padx=(0, 6), pady=2, sticky="w")
             ttk.Label(status_frame, textvariable=self.status_vars[key]).grid(row=row, column=column_offset + 1, pady=2, sticky="w")
-
-    def build_loopback_tab(self):
-        self.loopback_tab.columnconfigure(0, weight=1)
-        ttk.Label(
-            self.loopback_tab,
-            text="When loopback data arrives, a separate matplotlib window opens (or updates) with the capture.",
-            wraplength=520,
-        ).grid(row=0, column=0, padx=10, pady=16, sticky="nw")
 
     def build_log_panel(self, parent):
         log_frame = ttk.LabelFrame(parent, text="Messages", padding=0)
@@ -392,9 +348,6 @@ class GalvoController:
         self.point_y_spinbox.config(state="normal" if connected else "disabled")
 
         self.upload_btn.config(state="normal" if connected and self.current_file and not self.upload_in_progress else "disabled")
-        if not connected:
-            self.loopback_enabled = False
-        self.update_loopback_button()
 
     def schedule_status_poll(self):
         self.cancel_status_poll()
@@ -427,21 +380,6 @@ class GalvoController:
 
         try:
             packet = bytes([cmd]) + len(payload).to_bytes(2, "little") + payload
-            if cmd in (ENABLE_DISABLE_CMD, PROJECT_MODE_CMD):
-                # #region agent log
-                self.debug_log(
-                    "H4",
-                    "tools/galvoController.py:send_command",
-                    "Sending control command",
-                    {
-                        "cmd": cmd,
-                        "payload_hex": payload.hex(),
-                        "mode": self.status_vars["mode"].get(),
-                        "enabled": self.status_vars["enabled"].get(),
-                        "project_mode": self.status_vars["project_mode"].get(),
-                    },
-                )
-                # #endregion
             self.ser.write(packet)
             self.ser.flush()
             return True
@@ -564,30 +502,6 @@ class GalvoController:
             self.log_message("Sent project mode toggle")
             self.request_status(log_request=False)
 
-    def toggle_loopback(self):
-        if self.send_command(TOGGLE_LOOPBACK_CMD):
-            self.loopback_enabled = not self.loopback_enabled
-            self.update_loopback_button()
-
-    def update_loopback_button(self):
-        if not hasattr(self, "loopback_btn"):
-            return
-
-        if self.loopback_enabled:
-            self.loopback_btn.config(
-                bg="#2196F3",
-                activebackground="#1976D2",
-                fg="white",
-                activeforeground="white",
-            )
-        else:
-            self.loopback_btn.config(
-                bg=self.default_loopback_bg,
-                activebackground=self.default_loopback_bg,
-                fg="black",
-                activeforeground="black",
-            )
-
     def set_playback_speed(self):
         selected_speed = self.speed_var.get()
         if selected_speed not in self.speed_options:
@@ -638,8 +552,6 @@ class GalvoController:
 
                 if packet_type == RECEIVE_STATUS_PACKET_CMD:
                     self.handle_status_packet()
-                elif packet_type == LOOPBACK_DATA_CMD:
-                    self.handle_loopback_packet()
                 elif packet_type == DEBUG_CMD:
                     self.handle_debug_packet()
                 else:
@@ -686,17 +598,6 @@ class GalvoController:
 
         message = line.decode("utf-8", errors="replace").strip()
         if message:
-            if "LOOPBACK:" in message:
-                return
-            if "SD ERROR" in message or "File opened for read" in message:
-                # #region agent log
-                self.debug_log(
-                    "H1",
-                    "tools/galvoController.py:handle_debug_packet",
-                    "Firmware debug line",
-                    {"message": message},
-                )
-                # #endregion
             self.log_message(f"Teensy: {message}")
 
     def handle_text_packet(self, first_byte):
@@ -705,50 +606,6 @@ class GalvoController:
         message = raw.decode("utf-8", errors="ignore").strip()
         if message:
             self.log_message(f"Teensy: {message}")
-
-    def handle_loopback_packet(self):
-        count_bytes = self.read_exact(4)
-        if not count_bytes:
-            return
-
-        total_points = int.from_bytes(count_bytes, "little")
-
-        total_bytes = total_points * 4
-        data = self.read_exact(total_bytes)
-        if not data:
-            return
-
-        x_vals = []
-        y_vals = []
-        for i in range(total_points):
-            offset = i * 4
-            x, y = struct.unpack(">HH", data[offset : offset + 4])
-            x_vals.append(x)
-            y_vals.append(y)
-
-        self.master.after(0, lambda: self.plot_loopback(x_vals, y_vals))
-
-    def plot_loopback(self, x_vals, y_vals):
-        if self.loopback_fig is None or not plt.fignum_exists(self.loopback_fig.number):
-            plt.ion()
-            self.loopback_fig, self.loopback_ax = plt.subplots(figsize=(12, 10))
-            mgr = self.loopback_fig.canvas.manager
-            if mgr is not None and hasattr(mgr, "set_window_title"):
-                mgr.set_window_title("Loopback Capture")
-            plt.show(block=False)
-
-        n = len(x_vals)
-        self.loopback_ax.clear()
-        self.loopback_ax.plot(x_vals, y_vals, "o", linewidth=0.5, color="#2196F3")
-        self.loopback_ax.set_title(f"Loopback Capture ({n} points)")
-        self.loopback_ax.set_xlabel("X (DAC A)")
-        self.loopback_ax.set_ylabel("Y (DAC B)")
-        self.loopback_ax.set_xlim(0, 65535)
-        self.loopback_ax.set_ylim(0, 65535)
-        self.loopback_ax.set_aspect("equal")
-        self.loopback_ax.grid(True, alpha=0.3)
-        self.loopback_fig.tight_layout()
-        self.loopback_fig.canvas.draw_idle()
 
     def update_status_display(self, payload):
         mode_lookup = {
@@ -780,15 +637,6 @@ class GalvoController:
         for key, value in values.items():
             self.status_vars[key].set(value)
 
-        # #region agent log
-        self.debug_log(
-            "H2",
-            "tools/galvoController.py:update_status_display",
-            "Status packet received",
-            values,
-        )
-        # #endregion
-
     def handle_disconnection(self):
         was_connected = self.connection_status.cget("text") == "Connected"
         self.cancel_status_poll()
@@ -799,13 +647,6 @@ class GalvoController:
     def on_close(self):
         if self.connected:
             self.disconnect_serial()
-        if self.loopback_fig is not None:
-            try:
-                plt.close(self.loopback_fig)
-            except Exception:
-                pass
-            self.loopback_fig = None
-            self.loopback_ax = None
         self.master.destroy()
 
 

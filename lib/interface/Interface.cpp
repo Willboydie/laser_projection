@@ -83,10 +83,6 @@ void Interface::processCommand(uint8_t cmd, uint8_t* payload, uint32_t length) {
             handleSetPointCommand(payload, length);
             break;
 
-        case TOGGLE_LOOPBACK_CMD:
-            handleToggleLoopbackCommand();
-            break;
-
         default:
             Debug::msg("ERROR: Unknown command");
     }
@@ -184,22 +180,6 @@ void Interface::handleSetPointCommand(uint8_t* payload, uint32_t length) {
     projector.setSetPointX(x);
     projector.setSetPointY(y);
     Debug::msg("Set point: (" + String(x) + ", " + String(y) + ")");
-}
-
-void Interface::handleToggleLoopbackCommand() {
-    if (!systemState.enabled) {
-        Debug::msg("ERROR: Not enabled");
-        return;
-    }
-    if (systemState.mode != MODE_PROJECT) {
-        Debug::msg("ERROR: Not in PROJECT mode");
-        return;
-    }
-    if (systemState.projectMode != PROJECT_MODE_PATH) {
-        Debug::msg("ERROR: Not in PATH mode");
-        return;
-    }
-    projector.toggleLoopBack();
 }
 
 

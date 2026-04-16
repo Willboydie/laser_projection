@@ -13,7 +13,6 @@ bool RotatingBuffer::init() {
         return false;
     }
 
-    // Update file size and open for reading
     if (fileManager.openForRead()) {
         fileManager.setCurrentPos(0);
         fileManager.seekToPosition(0);
@@ -41,13 +40,13 @@ bool RotatingBuffer::init() {
     }
     fillingBuffer = bufferB;
     if (!fill()) {
-        Debug::msg("ERROR: Failed to fill buffer A");
+        Debug::msg("ERROR: Failed to fill buffer B");
         return false;
     }
     
-    activeBuffer  = bufferA;  // consumed first
-    readyBuffer   = bufferB;  // consumed second
-    fillingBuffer = bufferC;  // being filled in background
+    activeBuffer  = bufferA;
+    readyBuffer   = bufferB;
+    fillingBuffer = bufferC;
 
     if (!fill()) {
         Debug::msg("ERROR: Failed to fill buffer C");
@@ -60,6 +59,7 @@ bool RotatingBuffer::init() {
 void RotatingBuffer::deinit() {
     Debug::msg("Deinitialising rotating buffer system...");
     bufferIdx = 0;
+    needsFill = false;
     clearBuffers();
     initialised = false;
     Debug::msg("Rotating buffer system deinitialised successfully. User must re-initialise.");
@@ -72,7 +72,7 @@ void RotatingBuffer::updateValues(uint16_t& valA, uint16_t& valB, bool& laserSta
         return;
     }
     
-    uint32_t offset = (bufferIdx << 2) + bufferIdx; // *5 without multiplication
+    uint32_t offset = (bufferIdx << 2) + bufferIdx;
     valA = (activeBuffer[offset] << 8) | activeBuffer[offset + 1];
     valB = (activeBuffer[offset + 2] << 8) | activeBuffer[offset + 3];
     laserState = activeBuffer[offset + 4];
@@ -91,18 +91,20 @@ bool RotatingBuffer::fill() {
         return false;
     }
 
+    uint8_t* dest = fillingBuffer;
+
     const size_t totalBytes = buffer_size * record_size;
     size_t remaining = filesize - fileManager.getCurrentPos();
 
     if (remaining >= totalBytes) {
-        size_t n = file.read(fillingBuffer, totalBytes);
+        size_t n = file.read(dest, totalBytes);
         if (n != totalBytes) {
             Debug::msg("ERROR: Failed to read buffer data");
             return false;
         }
         fileManager.setCurrentPos(fileManager.getCurrentPos() + totalBytes);
     } else {
-        size_t n = file.read(fillingBuffer, remaining);
+        size_t n = file.read(dest, remaining);
         if (n != remaining) {
             Debug::msg("ERROR: Failed to read tail");
             return false;
@@ -111,7 +113,7 @@ bool RotatingBuffer::fill() {
         file.seek(0);
 
         size_t head = totalBytes - remaining;
-        n = file.read(fillingBuffer + remaining, head);
+        n = file.read(dest + remaining, head);
         if (n != head) {
             Debug::msg("ERROR: Failed to read head");
             return false;
@@ -130,12 +132,14 @@ bool RotatingBuffer::fillIfNeeded() {
 }
 
 bool RotatingBuffer::rotate() {
-    oldActive = activeBuffer;
-    oldReady = readyBuffer;
-    oldFill = fillingBuffer;
-    
-    activeBuffer = oldReady;
-    readyBuffer = oldFill;
+    if (needsFill) {
+        bufferIdx = 0;
+        return false;
+    }
+
+    uint8_t* oldActive = activeBuffer;
+    activeBuffer = readyBuffer;
+    readyBuffer = fillingBuffer;
     fillingBuffer = oldActive;
 
     bufferIdx = 0;

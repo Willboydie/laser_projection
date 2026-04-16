@@ -62,7 +62,6 @@ private:
     void handleDebugModeCommand();
     void handleToggleProjectModeCommand();
     void handleSetPointCommand(uint8_t* payload, uint32_t length);
-    void handleToggleLoopbackCommand();
     
     // Utility functions
     uint32_t calculateDelayUs(uint8_t* payload, uint32_t length);

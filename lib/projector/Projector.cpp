@@ -2,71 +2,86 @@
 
 constexpr uint32_t buffer_size = BUFFER_SIZE;
 
-Projector::Projector(DAC_SPI& dacSPI, Laser& laser,SystemState& ss, RotatingBuffer& _buffer, LoopBack& _loopBack) 
+Projector* Projector::instance = nullptr;
+
+Projector::Projector(DAC_SPI& dacSPI, Laser& laser, SystemState& ss, RotatingBuffer& _buffer) 
 : dacSPI(dacSPI)
 , laser(laser)
 , systemState(ss) 
 , buffer(_buffer)
-, loopBack(_loopBack)
 {}
 
 void Projector::init() {
     Debug::msg("Initializing projector...");
     dacSPI.init();
     laser.init();
+    instance = this;
     Debug::msg("Projector initialized successfully");
     initialised = true;
 }
 
 void Projector::deinit() {
     Debug::msg("Deinitializing projector...");
+    stop();
     dacSPI.deinit();
     laser.deinit();
+    instance = nullptr;
     Debug::msg("Projector deinitialized successfully");
     initialised = false;
 }
 
-void Projector::update() {
-    if (!systemState.projecting) return;
-    if (!initialised) {
-        Debug::msg("ERROR: Projector not initialized");
-        return;
+void Projector::start() {
+    if (!initialised || running) return;
+
+    uint32_t period = (delayUs < MIN_POINT_PERIOD_US) ? MIN_POINT_PERIOD_US : delayUs;
+    timer.begin(isrTrampoline, period);
+    running = true;
+    Debug::msg("Projection ISR started, period=");
+    Debug::msg(period);
+    Debug::msg("us");
+}
+
+void Projector::stop() {
+    if (!running) return;
+    timer.end();
+    running = false;
+    laser.off();
+    laserState = false;
+}
+
+void Projector::setDelay(uint32_t _delayUs) {
+    delayUs = _delayUs;
+    if (running) {
+        uint32_t period = (delayUs < MIN_POINT_PERIOD_US) ? MIN_POINT_PERIOD_US : delayUs;
+        timer.update(period);
     }
+}
 
-    uint32_t currentTime = micros();
-    uint32_t elapsedTime = (currentTime >= lastUpdateTime) ? 
-                            (currentTime - lastUpdateTime) : 
-                            (0xFFFFFFFF - lastUpdateTime + currentTime + 1);
+void Projector::isrTrampoline() {
+    if (instance) instance->isr();
+}
 
-   if (elapsedTime >= delayUs) {
+void Projector::isr() {
+    uint16_t valA = 0;
+    uint16_t valB = 0;
+    bool laserVal = laserState;
 
-        uint16_t valA = 0;
-        uint16_t valB = 0;
+    if (systemState.projectMode == PROJECT_MODE_POINT) {
+        valA = setPointX;
+        valB = setPointY;
+        laserVal = true;
+    } else {
+        buffer.updateValues(valA, valB, laserVal);
+    }
+    laserState = laserVal;
 
-        if (systemState.projectMode == PROJECT_MODE_POINT) {
-            valA = setPointX;
-            valB = setPointY;
-            laserState = true;
-        } else {
-            buffer.updateValues(valA, valB, laserState);
-            bufferIdx++;
-        }
-    
-        dacSPI.update(valA, valB);
-        pointsProjected++;
-        lastUpdateTime = currentTime;
-        
-        // Check if we need to rotate buffers
-        if (bufferIdx >= buffer_size) {
+    dacSPI.update(valA, valB);
+    laser.update(laserState);
+    pointsProjected++;
+
+    if (systemState.projectMode == PROJECT_MODE_PATH) {
+        if (buffer.bufferIdx >= buffer_size) {
             buffer.rotate();
-            bufferIdx = 0;
-        }
-
-        if (loopBack.isOn()) {
-            loopBack.readNSave();
         }
     }
-
-    laser.update(laserState); // laser updated every loop to achieve pulsing (logic owned by Laser)
-    return;
 }
