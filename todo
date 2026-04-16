@@ -1,3 +1,1 @@
-SURING UP THE SYSTEM
-    - Test the new DCDC with the power supply - can it successfully power the raspi?
-    - Write a calibration routine as part of the websockets frontend. Slow increments to allow for comms latency.
+the buffer logic blocks the projection code. must fix.

@@ -32,22 +32,22 @@ void DAC_SPI::update(uint16_t A, uint16_t B) {
     SPI.transfer16((0b00000000 << 8) | (A >> 8));        // Cmd A + high byte of A
     SPI.transfer(A & 0xFF);      // Low byte of A
     digitalWriteFast(syncPin, HIGH);
+
+    delayMicroseconds(1);
+
     digitalWriteFast(syncPin, LOW);
     SPI.transfer16((0b00000001 << 8) | (B >> 8));      // Cmd B + high byte of B
     SPI.transfer(B & 0xFF);      // Low byte of B
     
     digitalWriteFast(syncPin, HIGH);  // End transaction
     digitalWriteFast(ldacPin, HIGH);  // Update both DACs simultaneously
+
+    delayMicroseconds(1);
 }
 
 // Uses SPI.h
 void DAC_SPI::initSPIControl() {
-    // Initialize SPI with standard library
-    SPI.begin();
-    SPI.setClockDivider(SPI_CLOCK_DIV2);  // ~30 MHz clock (clock_div4 is slower)
-    SPI.setDataMode(SPI_MODE0);           // CPOL=0, CPHA=0
-    SPI.setBitOrder(MSBFIRST);            // Most significant bit first
-    
+
     // Initialize control pins
     pinMode(syncPin, OUTPUT);
     pinMode(ldacPin, OUTPUT);
@@ -55,6 +55,33 @@ void DAC_SPI::initSPIControl() {
     digitalWrite(syncPin, HIGH);
     digitalWrite(ldacPin, HIGH);
     digitalWrite(clrPin, HIGH);
+
+    // // 2. Read the current pad configuration register for Pin 10
+    // uint32_t padConfig = IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_00;
+
+    // // 3. Clear the Slew Rate (SRE) bit [Bit 0]
+    // // Setting this to 0 forces the "Slow" Slew Rate. 
+    // // (1 is Fast, which is usually the default for SPI pins)
+    // padConfig &= ~(1 << 0);
+
+    // // 4. Clear the Drive Strength (DSE) bits [Bits 5:3]
+    // // We use a bitmask (binary 111 shifted left by 3) to wipe the current drive setting.
+    // padConfig &= ~(0b111 << 3);
+
+    // // 5. Set the Drive Strength to the lowest value
+    // // 001 = lowest drive (R0/1, ~150 ohm output impedance)
+    // // 111 = highest drive (R0/7, ~22 ohm output impedance)
+    // padConfig |= (0b011 << 3); 
+
+    // // 6. Write the modified configuration back to the silicon
+    // IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_00 = padConfig;
+
+
+    // Initialize SPI with standard library
+    SPI.begin();
+    SPI.setClockDivider(SPI_CLOCK_DIV2);
+    SPI.setDataMode(SPI_MODE0);           // CPOL=0, CPHA=0
+    SPI.setBitOrder(MSBFIRST);            // Most significant bit first
     
     Debug::msg("SPI Control initialized (using SPI.h library)");
 }
@@ -78,9 +105,9 @@ void DAC_SPI::initDAC() {
     delay(100); // Wait for reset to complete
     Debug::msg("Software reset complete");
 
-    sendSPICommand(0b001100000000000000000000); // Command 110 (LDAC Asynchronous Mode)
-    delay(100); // Wait for LDAC Asynchronous Mode to complete
-    Debug::msg("LDAC Asynchronous Mode enabled");
+    // sendSPICommand(0b001100000000000000000000); // Command 110 (LDAC Asynchronous Mode)
+    // delay(100); // Wait for LDAC Asynchronous Mode to complete
+    // Debug::msg("LDAC Asynchronous Mode enabled");
 
     // Enable internal reference (2.5V) + gain=2 (0-5V range)
     sendSPICommand(0b001110000000000000000001); // Command 111 (enable ref), data=0x0001

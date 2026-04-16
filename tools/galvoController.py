@@ -8,8 +8,7 @@ from tkinter import filedialog, messagebox, ttk
 
 import serial
 from serial.tools import list_ports
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+import matplotlib.pyplot as plt
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DEFAULT_PORT = "COM4"
@@ -91,6 +90,8 @@ class GalvoController:
 
         self.action_buttons = []
         self.default_loopback_bg = None
+        self.loopback_fig = None
+        self.loopback_ax = None
 
         self.setup_ui()
         self.refresh_ports()
@@ -290,29 +291,12 @@ class GalvoController:
             ttk.Label(status_frame, textvariable=self.status_vars[key]).grid(row=row, column=column_offset + 1, pady=2, sticky="w")
 
     def build_loopback_tab(self):
-        self.loopback_tab.columnconfigure(0, minsize=300, weight=1)
-        self.loopback_tab.rowconfigure(0, weight=1)
-
-        fig = Figure(figsize=(6, 6), dpi=100, tight_layout=True)
-        self.loopback_ax = fig.add_subplot(111)
-        self.loopback_ax.set_title("Loopback Capture")
-        self.loopback_ax.set_xlabel("X (DAC A)")
-        self.loopback_ax.set_ylabel("Y (DAC B)")
-        self.loopback_ax.set_xlim(0, 65535)
-        self.loopback_ax.set_ylim(0, 65535)
-        self.loopback_ax.set_aspect("equal")
-        self.loopback_ax.grid(True, alpha=0.3)
-
-        self.loopback_canvas = FigureCanvasTkAgg(fig, master=self.loopback_tab)
-        self.loopback_canvas.draw()
-        self.loopback_canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
-
-        toolbar_frame = ttk.Frame(self.loopback_tab)
-        toolbar_frame.grid(row=1, column=0, sticky="ew")
-        NavigationToolbar2Tk(self.loopback_canvas, toolbar_frame)
-
-        self.loopback_status = ttk.Label(self.loopback_tab, text="No data received")
-        self.loopback_status.grid(row=2, column=0, pady=(5, 0), sticky="w")
+        self.loopback_tab.columnconfigure(0, weight=1)
+        ttk.Label(
+            self.loopback_tab,
+            text="When loopback data arrives, a separate matplotlib window opens (or updates) with the capture.",
+            wraplength=520,
+        ).grid(row=0, column=0, padx=10, pady=16, sticky="nw")
 
     def build_log_panel(self, parent):
         log_frame = ttk.LabelFrame(parent, text="Messages", padding=0)
@@ -443,7 +427,7 @@ class GalvoController:
 
         try:
             packet = bytes([cmd]) + len(payload).to_bytes(2, "little") + payload
-            if cmd in (ENABLE_DISABLE_CMD, PROJECT_MODE_CMD, TOGGLE_LOOPBACK_CMD):
+            if cmd in (ENABLE_DISABLE_CMD, PROJECT_MODE_CMD):
                 # #region agent log
                 self.debug_log(
                     "H4",
@@ -584,8 +568,6 @@ class GalvoController:
         if self.send_command(TOGGLE_LOOPBACK_CMD):
             self.loopback_enabled = not self.loopback_enabled
             self.update_loopback_button()
-            state = "enabled" if self.loopback_enabled else "disabled"
-            self.log_message(f"Loopback {state}")
 
     def update_loopback_button(self):
         if not hasattr(self, "loopback_btn"):
@@ -704,7 +686,9 @@ class GalvoController:
 
         message = line.decode("utf-8", errors="replace").strip()
         if message:
-            if "LOOPBACK:" in message or "SD ERROR" in message or "File opened for read" in message:
+            if "LOOPBACK:" in message:
+                return
+            if "SD ERROR" in message or "File opened for read" in message:
                 # #region agent log
                 self.debug_log(
                     "H1",
@@ -725,16 +709,13 @@ class GalvoController:
     def handle_loopback_packet(self):
         count_bytes = self.read_exact(4)
         if not count_bytes:
-            self.log_message("Loopback: failed to read point count")
             return
 
         total_points = int.from_bytes(count_bytes, "little")
-        self.log_message(f"Receiving loopback data: {total_points} points...")
 
         total_bytes = total_points * 4
         data = self.read_exact(total_bytes)
         if not data:
-            self.log_message("Loopback: failed to read point data")
             return
 
         x_vals = []
@@ -745,21 +726,29 @@ class GalvoController:
             x_vals.append(x)
             y_vals.append(y)
 
-        self.log_message(f"Loopback data received: {total_points} points")
         self.master.after(0, lambda: self.plot_loopback(x_vals, y_vals))
 
     def plot_loopback(self, x_vals, y_vals):
+        if self.loopback_fig is None or not plt.fignum_exists(self.loopback_fig.number):
+            plt.ion()
+            self.loopback_fig, self.loopback_ax = plt.subplots(figsize=(12, 10))
+            mgr = self.loopback_fig.canvas.manager
+            if mgr is not None and hasattr(mgr, "set_window_title"):
+                mgr.set_window_title("Loopback Capture")
+            plt.show(block=False)
+
+        n = len(x_vals)
         self.loopback_ax.clear()
         self.loopback_ax.plot(x_vals, y_vals, "o", linewidth=0.5, color="#2196F3")
-        self.loopback_ax.set_title("Loopback Capture")
+        self.loopback_ax.set_title(f"Loopback Capture ({n} points)")
         self.loopback_ax.set_xlabel("X (DAC A)")
         self.loopback_ax.set_ylabel("Y (DAC B)")
         self.loopback_ax.set_xlim(0, 65535)
         self.loopback_ax.set_ylim(0, 65535)
         self.loopback_ax.set_aspect("equal")
         self.loopback_ax.grid(True, alpha=0.3)
-        self.loopback_canvas.draw()
-        self.loopback_status.config(text=f"{len(x_vals)} points plotted")
+        self.loopback_fig.tight_layout()
+        self.loopback_fig.canvas.draw_idle()
 
     def update_status_display(self, payload):
         mode_lookup = {
@@ -810,6 +799,13 @@ class GalvoController:
     def on_close(self):
         if self.connected:
             self.disconnect_serial()
+        if self.loopback_fig is not None:
+            try:
+                plt.close(self.loopback_fig)
+            except Exception:
+                pass
+            self.loopback_fig = None
+            self.loopback_ax = None
         self.master.destroy()
 
 
